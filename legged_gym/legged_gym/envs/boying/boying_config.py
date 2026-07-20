@@ -7,7 +7,7 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         num_privileged_obs = 286
 
     class init_state( LeggedRobotCfg.init_state ):
-        pos = [0.0, 0.0, 0.40] # x,y,z [m]
+        pos = [0.0, 0.0, 0.35] # x,y,z [m]
         default_joint_angles = { # = target angles [rad] when action = 0.0
             'FL_hip_joint':  0.1,   # [rad]
             'RL_hip_joint':  0.1,   # [rad]
@@ -26,14 +26,21 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         }
 
     class control( LeggedRobotCfg.control ):
-        # PD Drive parameters:
         control_type = 'P'
-        stiffness = {'joint': 60.}  # [N*m/rad]
-        damping = {'joint': 4.5}    # [N*m*s/rad]
-        # action scale: target angle = actionScale * action + defaultAngle
+        # [Method A] Motor spec ratio (empirical, based on GO1 stall torque ratio):
+        # k: 28 * (60/33.5) = 50,  d: GO1 uses 58.5% of d_max=T_stall/v_max=60/15.6=3.846 -> 2.25
+        stiffness = {'joint': 50.}
+        damping   = {'joint': 2.25}
+
+        # [Method B] 2nd-order system + equivalent inertia (matched to GO1, currently active):
+        # target: same ωn=28.38 rad/s and ζ=0.355 as GO1 thigh joint
+        # GO1:    J=0.03477 kg·m²  =>  k=28,  d=0.70
+        # Boying: J=0.03187 kg·m²  =>  k=ωn²·J=25.7≈26,  d=2·ζ·ωn·J=0.64
+        # stiffness = {'joint': 26.}   # [N*m/rad]
+        # damping   = {'joint': 0.64}  # [N*m*s/rad]
+        
         action_scale = 0.25
-        # decimation: Number of control action updates @ sim DT per policy DT
-        decimation = 4
+        decimation   = 4
 
     class asset( LeggedRobotCfg.asset ):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/boying_description/urdf/boying_description_withouthm.urdf'
@@ -45,25 +52,37 @@ class BoyingRoughCfg( LeggedRobotCfg ):
 
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.35
+        base_height_target = 0.3
 
         class scales( LeggedRobotCfg.rewards.scales ):
-            # --- stability: boying has higher CoM, penalize pitch/roll more ---
+            # --- stability: boying has higher CoM ---
             orientation  = -0.3       # go1: -0.2
-            ang_vel_xy   = -0.08      # go1: -0.05
+            ang_vel_xy   = -0.05      # go1: -0.05
 
-            # --- energy: boying is 19kg vs go1's 11kg, natural power is higher ---
+            # --- energy: boying 19kg, natural power higher, keep loose ---
             joint_power        = -1e-5   # go1: -2e-5
-            power_distribution = -5e-6   # go1: -10e-6
+            power_distribution = -5e-7   # go1: -10e-6 (reduced from -2e-6, structural asymmetry cannot be eliminated)
 
-            # --- smoothness: high damping (4.5) already damps motion naturally ---
-            smoothness   = -0.005     # go1: -0.01
+            # --- anti-oscillation: 2x go1, not 4x; heavy penalty blocks all gradient ---
+            action_rate  = -0.015     # go1: -0.01  (relaxed from -0.02, k=50 causes natural impact on complex terrain)
+            smoothness   = -0.008     # go1: -0.01
 
-            # --- acceleration: heavier thigh (1.5kg vs 0.9kg) has larger natural acc ---
+            # --- acceleration: heavier thigh (1.5kg vs 0.9kg) ---
             dof_acc      = -1.5e-7    # go1: -2.5e-7
 
-            # --- gait: longer legs (0.49m vs 0.43m), encourage larger steps ---
+            # --- gait: longer legs (0.49m vs 0.43m) ---
             feet_air_time = 0.15      # go1: 0.1
+
+        # [GO1 same weights - commented out]
+        # class scales( LeggedRobotCfg.rewards.scales ):
+        #     orientation  = -0.2
+        #     ang_vel_xy   = -0.05
+        #     joint_power        = -2e-5
+        #     power_distribution = -10e-6
+        #     action_rate  = -0.01
+        #     smoothness   = -0.01
+        #     dof_acc      = -2.5e-7
+        #     feet_air_time = 0.1
 
 class BoyingRoughCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
@@ -71,3 +90,4 @@ class BoyingRoughCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'rough_boying'
+        max_iterations = 30000
