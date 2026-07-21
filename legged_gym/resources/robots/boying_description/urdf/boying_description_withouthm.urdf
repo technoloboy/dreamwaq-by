@@ -52,7 +52,7 @@
     <collision>
       <origin xyz="0.0 0.0 0.005" rpy="0.000000 0.000000 0.000000" />
       <geometry>
-        <box size="0.430 0.185 0.136" />
+        <box size="0.430 0.180 0.136" />
       </geometry>
     </collision> 
     <!-- <collision>
@@ -255,7 +255,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.000000 0.100 0" rpy="1.570796 0.000000 0.000000" />
+      <origin xyz="0.000000 0.110 0" rpy="1.570796 0.000000 0.000000" />
       <geometry>
         <cylinder radius="0.044" length="0.0700" />
       </geometry>
@@ -501,7 +501,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.000000 -0.100 0" rpy="1.570796 0.000000 0.000000" />
+      <origin xyz="0.000000 -0.110 0" rpy="1.570796 0.000000 0.000000" />
       <geometry>
         <cylinder radius="0.044" length="0.0700" />
       </geometry>
@@ -747,7 +747,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.000000 0.100 0" rpy="1.570796 0.000000 0.000000" />
+      <origin xyz="0.000000 0.110 0" rpy="1.570796 0.000000 0.000000" />
       <geometry>
         <cylinder radius="0.044" length="0.0700" />
       </geometry>
@@ -993,7 +993,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0.000000 -0.100 0" rpy="1.570796 0.000000 0.000000" />
+      <origin xyz="0.000000 -0.110 0" rpy="1.570796 0.000000 0.000000" />
       <geometry>
         <cylinder radius="0.044" length="0.0700" />
       </geometry>
