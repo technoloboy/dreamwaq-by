@@ -7,17 +7,17 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         num_privileged_obs = 286
 
     class init_state( LeggedRobotCfg.init_state ):
-        pos = [0.0, 0.0, 0.35] # x,y,z [m]
+        pos = [0.0, 0.0, 0.16] # x,y,z [m]; actual standing height ~0.13m (FK: FL_thigh=0.7->0.131m, RL_thigh=0.8->0.138m)
         default_joint_angles = { # = target angles [rad] when action = 0.0
             'FL_hip_joint':  0.1,   # [rad]
             'RL_hip_joint':  0.1,   # [rad]
             'FR_hip_joint': -0.1,   # [rad]
             'RR_hip_joint': -0.1,   # [rad]
 
-            'FL_thigh_joint': 0.8,  # [rad]
-            'FR_thigh_joint': 0.8,  # [rad]
-            'RL_thigh_joint': 1.0,  # [rad]
-            'RR_thigh_joint': 1.0,  # [rad]
+            'FL_thigh_joint': 0.7,  # [rad]
+            'FR_thigh_joint': 0.7,  # [rad]
+            'RL_thigh_joint': 0.8,  # [rad]
+            'RR_thigh_joint': 0.8,  # [rad]
 
             'FL_calf_joint': -1.5,  # [rad]
             'FR_calf_joint': -1.5,  # [rad]
@@ -52,7 +52,7 @@ class BoyingRoughCfg( LeggedRobotCfg ):
 
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.3
+        base_height_target = 0.14  # actual standing height ~0.13m (was 0.30, caused 163mm error)
 
         class scales( LeggedRobotCfg.rewards.scales ):
             # --- stability: boying has higher CoM ---
