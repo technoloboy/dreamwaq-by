@@ -95,10 +95,10 @@ class BoyingRoughCfg( LeggedRobotCfg ):
 class BoyingRoughCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         entropy_coef = 0.01
-        # fixed LR required when resuming from a converged checkpoint:
-        # adaptive LR causes KL collapse → LR spikes to 1e-2 → policy destroyed (v8 failure)
-        schedule = 'fixed'
-        learning_rate = 1e-4
+        # NOTE: use schedule='fixed', learning_rate=1e-4 when resuming from a converged
+        # checkpoint to avoid adaptive LR spiking to 1e-2 and destroying the policy (v8 failure)
+        schedule = 'adaptive'
+        learning_rate = 1e-3
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'rough_boying'
