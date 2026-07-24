@@ -172,6 +172,7 @@ class LeggedRobotCfg(BaseConfig):
 
 
         max_contact_force = 100. # forces above this value are penalized
+        feet_air_time_threshold = 0.5 # min air time [s] for positive feet_air_time reward
 
 
     class normalization:

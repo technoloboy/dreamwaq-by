@@ -29,15 +29,20 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         control_type = 'P'
         # [Method A] Motor spec ratio (empirical, based on GO1 stall torque ratio):
         # k: 28 * (60/33.5) = 50,  d: GO1 uses 58.5% of d_max=T_stall/v_max=60/15.6=3.846 -> 2.25
-        stiffness = {'joint': 50.}
-        damping   = {'joint': 2.25}
+        # Training result: action_rate and smoothness ~50% worse than GO1 at same steps,
+        # raw joint_power ~7x GO1. High stiffness causes structural oscillation that
+        # reward tuning alone cannot compensate. Deprecated after v1~v4 experiments.
+        # stiffness = {'joint': 50.}
+        # damping   = {'joint': 2.25}
 
-        # [Method B] 2nd-order system + equivalent inertia (matched to GO1, currently active):
+        # [Method B] 2nd-order system + equivalent inertia (matched to GO1 dynamics):
         # target: same ωn=28.38 rad/s and ζ=0.355 as GO1 thigh joint
         # GO1:    J=0.03477 kg·m²  =>  k=28,  d=0.70
         # Boying: J=0.03187 kg·m²  =>  k=ωn²·J=25.7≈26,  d=2·ζ·ωn·J=0.64
-        # stiffness = {'joint': 26.}   # [N*m/rad]
-        # damping   = {'joint': 0.64}  # [N*m*s/rad]
+        # Method B (k=26/d=0.64) failed: underdamped, terrain degraded after step 3200
+        # Method C: k=40/d=1.5 — compromise: lower k reduces power, higher d suppresses oscillation
+        stiffness = {'joint': 40.}   # [N*m/rad]
+        damping   = {'joint': 1.5}   # [N*m*s/rad]
         
         action_scale = 0.25
         decimation   = 4
@@ -51,42 +56,49 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         self_collisions = 1 # 1 to disable, 0 to enable...bitwise filter
 
     class rewards( LeggedRobotCfg.rewards ):
+        only_positive_rewards = False
         soft_dof_pos_limit = 0.9
         base_height_target = 0.32
+        feet_air_time_threshold = 0.3  # go1: 0.5; lowered for boying to give positive lift incentive
 
         class scales( LeggedRobotCfg.rewards.scales ):
-            # --- stability: boying has higher CoM ---
-            orientation  = -0.3       # go1: -0.2
+            # --- stability: boying has higher CoM; orientation still ~50% worse than GO1 at equal steps ---
+            orientation  = -0.3       # go1: -0.2; -0.5 caused catastrophic collapse (Jul23 v7), -0.3 is upper limit for Boying
             ang_vel_xy   = -0.05      # go1: -0.05
 
-            # --- energy: boying 19kg, natural power higher, keep loose ---
-            joint_power        = -1e-5   # go1: -2e-5
-            power_distribution = -5e-7   # go1: -10e-6 (reduced from -2e-6, structural asymmetry cannot be eliminated)
+            # --- energy: restored to GO1 value; raw joint_power was ~7x GO1 under k=50 ---
+            joint_power        = -5e-6   # go1: -2e-5 (loosened: k=50 causes ~7x raw power vs GO1, penalty can't fix physics)
+            power_distribution = -5e-7   # go1: -10e-6 (kept loose: structural asymmetry from k=50)
 
-            # --- anti-oscillation: 2x go1, not 4x; heavy penalty blocks all gradient ---
-            action_rate  = -0.015     # go1: -0.01  (relaxed from -0.02, k=50 causes natural impact on complex terrain)
-            smoothness   = -0.008     # go1: -0.01
+            # --- anti-oscillation: equal to GO1; raw oscillation still ~50% higher due to k=50 ---
+            action_rate  = -0.01      # go1: -0.01 (was -0.015, relaxed Jul22)
+            smoothness   = -0.01      # go1: -0.01 (was -0.008, aligned Jul22)
 
             # --- acceleration: heavier thigh (1.5kg vs 0.9kg) ---
             dof_acc      = -1.5e-7    # go1: -2.5e-7
 
-            # --- gait: longer legs (0.49m vs 0.43m) ---
+            # --- gait: longer legs (0.49m vs 0.43m); feet_air_time threshold hardcoded 0.5s in
+            #     legged_robot.py:1031, both GO1 and Boying stay negative; not the terrain bottleneck ---
             feet_air_time = 0.15      # go1: 0.1
 
-        # [GO1 same weights - commented out]
+        # [GO1 baseline weights for reference]
         # class scales( LeggedRobotCfg.rewards.scales ):
-        #     orientation  = -0.2
-        #     ang_vel_xy   = -0.05
+        #     orientation        = -0.2
+        #     ang_vel_xy         = -0.05
         #     joint_power        = -2e-5
         #     power_distribution = -10e-6
-        #     action_rate  = -0.01
-        #     smoothness   = -0.01
-        #     dof_acc      = -2.5e-7
-        #     feet_air_time = 0.1
+        #     action_rate        = -0.01
+        #     smoothness         = -0.01
+        #     dof_acc            = -2.5e-7
+        #     feet_air_time      = 0.1
 
 class BoyingRoughCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         entropy_coef = 0.01
+        # fixed LR required when resuming from a converged checkpoint:
+        # adaptive LR causes KL collapse → LR spikes to 1e-2 → policy destroyed (v8 failure)
+        schedule = 'fixed'
+        learning_rate = 1e-4
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'rough_boying'

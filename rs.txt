@@ -1,0 +1,270 @@
+# Boying 奖励塑形记录 (Reward Shaping Log)
+# 路径: legged_gym/legged_gym/envs/boying/boying_config.py
+# 对照基线: GO1 (Jul21_01-34-58_, 2999 iters)
+# 更新日期: 2026-07-24
+================================================================================
+
+## GO1 基线参数（对照参考）
+  orientation        = -0.2
+  ang_vel_xy         = -0.05
+  joint_power        = -2e-5
+  power_distribution = -10e-6
+  action_rate        = -0.01
+  smoothness         = -0.01
+  dof_acc            = -2.5e-7
+  feet_air_time      = 0.1
+  [PD] stiffness=28, damping=0.7
+  [PPO] schedule=adaptive, learning_rate=1e-3, desired_kl=0.01, entropy_coef=0.01
+
+## 地形课程配置（供参考）
+  num_rows = 10，difficulty = row / 10（最高 0.9）
+  terrain_proportions = [0.1, 0.1, 0.35, 0.35, 0.1]（70% 台阶地形）
+  max_init_terrain_level = 5
+  @difficulty=0.33: step_height ≈ 0.109m
+  @difficulty=0.38: step_height ≈ 0.118m
+  @difficulty=0.40: step_height ≈ 0.122m
+
+## PD 参数实验总结
+  k=50, d=2.25（v1~v4, Method A）：raw power 730W，action_rate 比 GO1 差 50%，terrain 卡 3.3
+  k=26, d=0.64（v5,   Method B）：raw power 272W，欠阻尼（ζ≈0.35），terrain 退化至 2.19
+  k=40, d=1.5 （v6+,  Method C）：raw power 420W，terrain 3.88 峰值，收敛质量最佳 ✓
+
+================================================================================
+
+## 版本历史
+
+---
+
+### v1 — 初始 Boying 配置（Jul21_14-32-27_, 15400 iters）
+变更（相对 GO1）：
+  orientation        -0.2  → -0.3      (高重心补偿)
+  joint_power        -2e-5 → -1e-5     (减半：19kg 自然功耗更高)
+  power_distribution -10e-6 → -2e-6    (减小：结构不对称)
+  action_rate        -0.01 → -0.015    (增大：k=50 高刚度振荡)
+  smoothness         -0.01 → -0.008    (调整)
+  dof_acc            -2.5e-7 → -1.5e-7 (减小：大腿 1.5kg vs GO1 0.9kg)
+  feet_air_time      0.1  → 0.15       (增大：腿长 0.49m vs 0.43m)
+  [PD] k=50, d=2.25
+
+结果：
+  terrain_level 卡死在 3.2~3.4，全程无进展（GO1 同期达到 3.98+）
+  mean_reward 最终约 14.5（GO1 约 18.4）
+  feet_air_time 全程为负（-0.009~-0.010），步态无改善
+  episode_length 高（920~980）但 terrain 不进：robot 学会"在低难度地形活很久"
+  结论：action_rate 和 smoothness 过于严格，抑制了动态步态
+
+---
+
+### v2 — 放宽振荡惩罚（Jul22_11-14-13_, 4388 iters）
+变更：
+  action_rate        -0.015 → -0.01    (与 GO1 对齐)
+  smoothness         -0.008 → -0.01    (与 GO1 对齐)
+  power_distribution -2e-6  → -5e-7    (进一步放宽)
+  [PD] k=50, d=2.25（不变）
+
+结果：
+  terrain_level 最终 3.33（v1 同期 3.25，略好）
+  早期收敛更快：1500 步达到 3.22（v1 需 2500 步）
+  terrain_level 仍卡在 3.2~3.3，未能突破
+  GO1 对比分析发现：
+    - action_rate 原始值比 GO1 高 50%（k=50 的结构性振荡）
+    - smoothness 原始值比 GO1 高 56%
+    - 原始 joint_power 约 693W（GO1 约 92W，真机实测 200~300W）
+    - noise_std 比 GO1 高 41%，策略收敛性更差
+  结论：惩罚 scale 不是根本问题，k=50 高刚度才是振荡来源
+
+---
+
+### v3 — 错误尝试：加重 joint_power 惩罚（Jul22_13-10-22_, 2479 iters）
+变更：
+  joint_power        -1e-5 → -2e-5     (恢复 GO1 值)
+  [PD] k=50, d=2.25（不变）
+
+结果（与 v2 同步数对比）：
+  terrain_level @3000: 3.15（v2 为 3.25，变差 -3.1%）
+  mean_reward @3000:   11.12（v2 为 13.21，变差 -15.8%）
+  原始 joint_power: 661W（v2 为 693W，仅降 5%）
+  结论：scale 加倍但实际功耗几乎不变，robot 物理行为未改变，
+        只是相同功耗被扣更多分，奖励景观变差，训练更困难。
+        惩罚压不住物理约束，方向错误。
+
+---
+
+### v4 — 放宽 joint_power 惩罚（Jul22_14-24-42_, 2846 iters）
+变更：
+  joint_power        -2e-5 → -5e-6     (进一步放宽，约 GO1 的 1/4)
+  [PD] k=50, d=2.25（不变）
+
+理由：
+  Boying sim 功耗约 693W，真机电气功率 200~300W。
+  sim 功率虚高约 3x 来自 k=50 高刚度振荡，惩罚无法改变物理特性。
+
+结果（与 v2 对比，2846 iters）：
+  terrain_level @2846: 3.36（v2 同期 3.25，+3.3%）
+  原始 joint_power:    728W（v2 为 737W，几乎不变！）
+  noise_std @2846: 0.555（v2 为 0.531，更高）→ 策略收敛性反而更差
+  结论：joint_power scale 调整对 terrain 有微弱正效果（+3%），
+        但根本问题仍是 k=50 导致的振荡和高功耗，继续在此方向调参已到边际。
+
+---
+
+### v5 — 切换 PD 至 Method B（Jul22_15-43-58_, 6936 iters）
+变更：
+  stiffness  50.  → 26.   (Method B：基于二阶系统等效惯量推导)
+  damping    2.25 → 0.64
+
+理由：
+  v1~v4 共 4 次训练，joint_power scale 从 -2e-5 调到 -5e-6，
+  raw 功耗始终约 730W，reward tuning 对物理特性无效。
+  k=50 是振荡根源，切换至 Method B 期望降低功耗并改善振荡。
+
+结果：
+  raw joint_power 大幅下降：v2(730W) → v5(272W)（降 63%，接近真机 200-300W）
+  terrain_level 出现退化性崩溃：step 3200 达到峰值 3.22，step 6936 时仅 2.19
+  action_rate 比 v2 差 36%，smoothness 差 38%——低刚度+低阻尼反而更抖
+  noise_std 全程 0.68~0.75，策略无法稳定
+
+  根本原因：ζ = 0.64/(2√(26×0.032)) ≈ 0.35，欠阻尼系统会振荡。
+  Boying 大腿更重（1.5kg vs GO1 0.9kg），低 k 下欠阻尼振荡更剧烈。
+  Method B 理论值在 Boying 上失效，不能直接套用。
+
+---
+
+### v6 — Method C: k=40, d=1.5（Jul22_19-00-58_, 16219 iters）✓ 当前最佳
+变更：
+  stiffness  26. → 40.   (Method C：k=26 和 k=50 的折中，更高阻尼抑制振荡)
+  damping    0.64 → 1.5
+
+结果：
+  [重大突破] terrain_level 首次持续上升，无退化：
+    step 3200: 3.45，step 8200: 3.75，step 16219: 3.75（峰值 3.88 @step ~12000）
+    相比 v2(k=50) 最终 3.40，v6 最终 3.75（+10%）
+
+  raw joint_power 420W（v2 的 57%）；action_rate/smoothness 接近 v2 水平（未恶化）
+  mean_reward @16219: 17.93（GO1 为 18.44，差距缩至 3%）
+  value_loss @16219: 0.0040（所有 boying 版本最低，接近 GO1 的 0.0035）
+  noise_std @16219: 0.504
+
+  深度对比分析（v6 step 12k-16k vs GO1 step 2k-3k）：
+    terrain_level 差距仅 -0.5%（3.799 vs 3.880）
+    orientation raw 几乎相同（0.037 vs 0.038）—— orientation 不是瓶颈！
+    power_distribution raw 24x 差距（4478 vs 185），但 v6 实付惩罚已超 GO1
+    action_rate raw 1.51x，smoothness raw 1.49x（k=40 结构性振荡，无法靠 reward 消除）
+
+---
+
+### v7 — orientation 加强至 -0.5（Jul23_00-27-31_, 6236 iters）
+变更：
+  orientation  -0.3 → -0.5
+  [PD] k=40, d=1.5（不变）
+
+结果：灾难性崩溃
+  terrain step 3200 达峰值 3.30，step 4600 跌至 0.01，step 5000+ 约 0.0002
+  mean_reward @6236: 0.21；noise_std @6236: 0.885；ep_length: 572（频繁摔死）
+
+  根本原因：orientation raw 值与 GO1 相同（0.037 vs 0.038），加大惩罚毫无意义。
+  高难度台阶需要轻微前倾，-0.5 的惩罚阻止前倾并引发过激补偿，触发死亡螺旋。
+  结论：orientation=-0.3 是 Boying 的安全上限，-0.5 已验证过强，禁止。
+
+---
+
+### v8 — Resume from v6（Jul23_14-45-26_, 18000 iters）
+变更：无奖励变更，从 Jul22_19-00-58_ step 16200 恢复，PPO 仍使用 adaptive LR
+
+结果：灾难性退化
+  terrain 0-9k 正常（峰值 3.88 @step 8550），之后单调下滑至 2.82（step 18000）
+  mean_reward 从 18.8 跌至 0.8（跌幅 96%）；ep_length 从 986 跌至 167
+  surrogate loss step 9k 后转正（+0.009），policy 更新方向完全错误
+
+  根本原因：adaptive LR + checkpoint resume 的致命组合
+    从已收敛的 checkpoint 恢复时 KL 极低（接近 0），连续触发 "kl < desired_kl/2"
+    → lr × 1.5 反复执行，约 40 步内从 5e-4 飙至上限 1e-2
+    → 1e-2 大步长破坏已收敛 policy，KL 爆炸
+    → lr 被压死到 1e-5，surrogate 转正，无法自愈
+    step 8510 第一次脉冲（45 iters），step 8670-8906 第二次脉冲（237 iters，全程 1e-2）
+
+  v6 从头训练时 LR 从未超过 3.84e-4，此次 resume 才触发爆炸。
+  与奖励函数和 PD 参数无关，是优化器配置问题。
+
+  修复：在 boying_config.py 中新增：
+    schedule = 'fixed'
+    learning_rate = 1e-4
+  已应用到代码（BoyingRoughCfgPPO.algorithm）。
+
+---
+
+### v9 — Fixed LR resume from v6（Jul24_14-32-17_, 9543 iters）✓ 收敛
+变更：
+  schedule      adaptive → 'fixed'
+  learning_rate 1e-3(adaptive) → 1e-4(fixed)
+  从 Jul22_19-00-58_ step 16200 恢复，reward/PD 参数与 v6 完全相同
+
+阶段趋势：
+  terrain_level:
+    0-2k:   mean=3.54  trend=+1.44（快速重建，checkpoint 起效）
+    2k-4k:  mean=3.93  slope=+0.038/1k
+    4k-6k:  mean=4.00  slope=+0.052/1k（peak 4.07，首次稳定突破 4.0）
+    6k-8k:  mean=3.92  slope=-0.033/1k（小幅回落）
+    8k-9.5k:mean=3.95  slope=-0.053/1k（收敛平台）
+
+  noise_std: 从 0.504(v6末尾) 降至 0.445~0.448，fixed LR 效果显著
+  surrogate: 全程 -0.0066~-0.0071，稳定学习，无崩溃
+  mean_reward: 19.3-19.6，std<0.42，极度稳定（v6 为 17.9）
+  terrain≥4.0 占比: 4k-6k 为 24%，8k+ 降至 8.8% → policy 已到当前极限
+
+末尾 raw 值（step 7.5k-9.5k）：
+  action_rate raw:  7.43（v6=8.54，改善 13%）
+  smoothness raw:   1.04（v6=1.22，改善 15%）
+  power_dist raw:   4113（v6=4478，改善 8%）
+  orientation raw:  0.033（低于 GO1=0.038，最优）
+  tracking_lin_vel: 0.863（GO1=0.85，略高于 GO1）
+
+收敛判断：已收敛
+  terrain 在 3.93~4.0 震荡，slope 趋近 0，terrain≥4.0 占比持续下降
+  noise_std 锁定 0.446，surrogate 无变化趋势
+  4.0 对应 step_height≈0.122m 是当前行为极限，继续训练无法突破
+
+结论：v9 是历史最佳配置，mean_reward 19.6 超越 GO1(18.4)，terrain 到达 4.0 平台。
+      当前瓶颈是抬腿高度不足，feet_air_time 阈值过高（0.5s）导致全程无正向激励。
+
+---
+
+================================================================================
+
+## 当前配置（v10 待训练，feet_air_time 阈值优化）
+  [PPO] 与 v9 相同
+  schedule      = 'fixed'
+  learning_rate = 1e-4
+  entropy_coef  = 0.01
+
+  [rewards] 与 v9 相同，仅修改代码层阈值
+  feet_air_time = 0.15（scale 不变）
+  [代码] legged_robot.py:1031  阈值 0.5s → 0.3s（已修改）
+
+  [PD] stiffness=40, damping=1.5
+
+  resume 命令：
+    python legged_gym/scripts/train.py --task boying --resume \
+      --load_run Jul24_14-32-17_ --checkpoint -1 --headless
+
+## 下一步建议
+  P1【当前：v10，feet_air_time 阈值 0.5→0.3s（已修改）】
+     legged_robot.py:1031 阈值降低后，抬腿超过 0.3s 即获正向激励。
+     v9 末尾 feet_air_time=-0.0083（全程负值），改后预期出现正值，
+     引导 policy 做更高抬腿，有助突破 step_height>0.122m 的台阶。
+     从 v9 最终 checkpoint resume，观察 terrain 能否稳定突破 4.0。
+
+  P2【若 v10 terrain 仍卡在 4.0，考虑同步调整 feet_air_time scale】
+     当前 scale=0.15，若阈值改后奖励信号仍弱，可尝试增大到 0.2。
+
+  P3【长期：观察 power_dist 是否继续自然下降】
+     v6=4478 → v9=4113，每轮训练自然改善约 5-8%。
+     无需主动调参，继续训练即可。
+
+## 已废弃方向
+  - orientation 加强（>-0.3）：v7 证明致命，物理倾斜与 GO1 相同，无必要
+  - power_distribution 加大：v6 实付惩罚已超 GO1，加大只破坏稳定性
+  - joint_power 加大：v3 证明 raw 功耗不受 scale 影响，k=40 物理限制
+  - adaptive LR + checkpoint resume：v8 证明此组合致命，禁止
+
+================================================================================
