@@ -231,40 +231,43 @@
 
 ================================================================================
 
-## 当前配置（v10 待训练，feet_air_time 阈值优化）
-  [PPO] 与 v9 相同
-  schedule      = 'fixed'
-  learning_rate = 1e-4
+## 当前配置（v10，从头训练）
+  [PPO]
+  schedule      = 'adaptive'  # 从头训练用 adaptive，初期 LR 自动爬升
+  learning_rate = 1e-3        # adaptive 初始值，实际由 KL 自动调整
   entropy_coef  = 0.01
+  ※ resume 已收敛 checkpoint 时须改为 schedule='fixed', learning_rate=1e-4（见 v8 教训）
 
-  [rewards] 与 v9 相同，仅修改代码层阈值
-  feet_air_time = 0.15（scale 不变）
-  [代码] legged_robot.py:1031  阈值 0.5s → 0.3s（已修改）
-
+  [rewards]
+  orientation        = -0.3
+  ang_vel_xy         = -0.05
+  joint_power        = -5e-6
+  power_distribution = -5e-7
+  action_rate        = -0.01
+  smoothness         = -0.01
+  dof_acc            = -1.5e-7
+  feet_air_time      = 0.15
+  feet_air_time_threshold = 0.3  # boying_config.py 覆盖；基类默认 0.5（GO1 不受影响）
   [PD] stiffness=40, damping=1.5
 
-  resume 命令：
-    python legged_gym/scripts/train.py --task boying --resume \
-      --load_run Jul24_14-32-17_ --checkpoint -1 --headless
+  训练命令：
+    python legged_gym/scripts/train.py --task boying --headless
 
 ## 下一步建议
-  P1【当前：v10，feet_air_time 阈值 0.5→0.3s（已修改）】
-     legged_robot.py:1031 阈值降低后，抬腿超过 0.3s 即获正向激励。
-     v9 末尾 feet_air_time=-0.0083（全程负值），改后预期出现正值，
-     引导 policy 做更高抬腿，有助突破 step_height>0.122m 的台阶。
-     从 v9 最终 checkpoint resume，观察 terrain 能否稳定突破 4.0。
+  P1【观察 v10 前 5000 步，terrain 能否比 v9 更快到达 3.9+】
+     feet_air_time 阈值 0.3s 从一开始就生效，预期更早出现正向抬腿激励。
+     对比 v9：step 1200 首次达到 3.86，step 2000 达到 3.93。
 
-  P2【若 v10 terrain 仍卡在 4.0，考虑同步调整 feet_air_time scale】
-     当前 scale=0.15，若阈值改后奖励信号仍弱，可尝试增大到 0.2。
+  P2【若 terrain 稳定在 4.0 平台后仍无法突破，考虑调大 feet_air_time scale】
+     当前 scale=0.15，可尝试增大到 0.2，加强抬腿信号权重。
 
-  P3【长期：观察 power_dist 是否继续自然下降】
-     v6=4478 → v9=4113，每轮训练自然改善约 5-8%。
-     无需主动调参，继续训练即可。
+  P3【收敛后如需 resume，先改 PPO：schedule='fixed', learning_rate=1e-4】
+     避免 v8 的 adaptive LR 爆炸问题。
 
 ## 已废弃方向
   - orientation 加强（>-0.3）：v7 证明致命，物理倾斜与 GO1 相同，无必要
   - power_distribution 加大：v6 实付惩罚已超 GO1，加大只破坏稳定性
   - joint_power 加大：v3 证明 raw 功耗不受 scale 影响，k=40 物理限制
-  - adaptive LR + checkpoint resume：v8 证明此组合致命，禁止
+  - adaptive LR + checkpoint resume：v8 证明此组合致命，resume 时必须用 fixed LR
 
 ================================================================================
