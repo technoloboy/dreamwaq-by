@@ -6,6 +6,11 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         # privileged_obs = obs(45) + lin_vel(3) + contact_forces(17*3=51) + heights(17*11=187) = 286
         num_privileged_obs = 286
 
+    class terrain( LeggedRobotCfg.terrain ):
+        # cap max step height at ~0.117m (difficulty=0.9): 0.05 + 0.074*0.9 = 0.117m
+        # go1 default scale=0.18 gives 0.212m at difficulty=0.9, beyond boying's leg reach
+        step_height_scale = 0.074
+
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.40] # x,y,z [m]
         default_joint_angles = { # = target angles [rad] when action = 0.0
@@ -59,12 +64,16 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         only_positive_rewards = False
         soft_dof_pos_limit = 0.9
         base_height_target = 0.32
-        feet_air_time_threshold = 0.3  # go1: 0.5; lowered for boying to give positive lift incentive
+        feet_air_time_threshold = 0.5  # same as go1; gradient still incentivizes longer air time even when negative
 
         class scales( LeggedRobotCfg.rewards.scales ):
             # --- stability: boying has higher CoM; orientation still ~50% worse than GO1 at equal steps ---
             orientation  = -0.3       # go1: -0.2; -0.5 caused catastrophic collapse (Jul23 v7), -0.3 is upper limit for Boying
             ang_vel_xy   = -0.05      # go1: -0.05
+
+            # --- height: go1 default -1.0 is too strong for Boying; stairs require natural trunk height adjustment ---
+            # v14 analysis: base_height deviation was 0.118m (vs v9/GO1: 0.042m) under -1.0, 2.8x worse
+            base_height  = -0.5       # go1: -1.0 (halved: Boying at 0.32m target on stairs needs more flexibility)
 
             # --- energy: restored to GO1 value; raw joint_power was ~7x GO1 under k=50 ---
             joint_power        = -5e-6   # go1: -2e-5 (loosened: k=50 causes ~7x raw power vs GO1, penalty can't fix physics)
@@ -77,8 +86,7 @@ class BoyingRoughCfg( LeggedRobotCfg ):
             # --- acceleration: heavier thigh (1.5kg vs 0.9kg) ---
             dof_acc      = -1.5e-7    # go1: -2.5e-7
 
-            # --- gait: longer legs (0.49m vs 0.43m); feet_air_time threshold hardcoded 0.5s in
-            #     legged_robot.py:1031, both GO1 and Boying stay negative; not the terrain bottleneck ---
+            # --- gait: longer legs (0.49m vs 0.43m) ---
             feet_air_time = 0.15      # go1: 0.1
 
         # [GO1 baseline weights for reference]
@@ -94,11 +102,16 @@ class BoyingRoughCfg( LeggedRobotCfg ):
 
 class BoyingRoughCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
-        entropy_coef = 0.01
-        # NOTE: use schedule='fixed', learning_rate=1e-4 when resuming from a converged
-        # checkpoint to avoid adaptive LR spiking to 1e-2 and destroying the policy (v8 failure)
+        # v13: entropy_coef=0.01 + max_lr=5e-4 caused noise_std to diverge (0.99→2.36 over 20k steps)
+        # low LR (~1.5e-4 mean) couldn't counteract the entropy bonus, so policy kept expanding variance
+        # v15: entropy_coef=0.001 caused terrain to drop to 0 — policy over-converged to flat-ground
+        # strategy before learning stairs (noise_std=0.35 by step 200, too deterministic to explore)
+        # v16: entropy_coef=0.01 diverged to noise_std=5.23 by step 30k (same root cause as v13)
+        # v17: entropy_coef=0.005 — midpoint between 0.001 (too low) and 0.01 (too high)
+        entropy_coef = 0.005
         schedule = 'adaptive'
         learning_rate = 1e-3
+        max_learning_rate = 8e-4
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'rough_boying'

@@ -229,45 +229,374 @@
 
 ---
 
+---
+
+### v10 — 新 feet_air_time_threshold=0.3 + adaptive LR 从头训练（Jul24_17-54-21_, 12933 iters）✗ 崩溃
+变更（相对 v9 / v6 基线）：
+  feet_air_time_threshold  0.5 → 0.3   (boying_config.py 覆盖，目标给正向抬腿激励)
+  schedule      'fixed' → 'adaptive'   (恢复 adaptive，因为是从头训练)
+  learning_rate 1e-4 → 1e-3
+  奖励 scale / PD 参数与 v6/v9 完全相同
+
+阶段趋势：
+  terrain_level:
+    0-1k:   mean=1.69  trend=+0.36（快速上升）
+    1k-3k:  mean=3.26  trend=+0.49（持续上升，学习正常）
+    3k-7k:  mean=3.58  trend=+0.17（缓慢进展，学习减速）
+    7k-8k:  mean=3.74  trend=-0.04（峰值区，3.79 @step ~7600）
+    8k-9k:  mean=3.59  trend=-0.05（开始退化）
+    9k-12.9k:mean=3.09  slope=-0.25/1k（持续崩溃）
+  末尾 terrain: 2.59（比峰值低 1.2 level）
+
+  noise_std: 从 0.60 降至 0.47（7-8k 时），之后逆转回升至 0.61（末尾）
+  surrogate: step 7700 后转正（从 -0.005 → +0.005），标志 policy 开始退化
+  mean_reward: step 8k 达峰 17.6，之后跌至 2.3（末尾），跌幅 87%
+  ep_length: 从 950 跌至 295（末尾），robot 频繁跌倒
+
+末尾 raw 值（最后 2000 步，step 10.9k-12.9k，严重退化期）：
+  feet_air_time:      -0.00098  （阈值降低后有改善，v9末尾=-0.0083；但退化后步态已乱）
+  tracking_lin_vel:    0.2274   （v9=0.863，严重下降 74%，步速控制崩溃）
+  action_rate raw:     3.467    （v9=7.43，看似"改善"，实为 robot 不动了）
+  joint_power(W):      272      （v9=394W，同上理由）
+  orientation raw:     0.0476   （v9=0.033，变差）
+
+崩溃根本原因（adaptive LR + 新训练的不稳定窗口）：
+  LR 范围：min=1e-5，max=1e-2（触达上限！）
+  与 v8 的 adaptive LR 爆炸模式相同：
+    step 7600 surrogate 接近 0 → KL 降低 → adaptive LR 开始上冲
+    step 7700 surrogate 转正（+0.00042）→ policy 更新方向错误
+    step 8900 surrogate 跳至 +0.005 → 崩溃加速
+  关键差异：v8 是从已收敛 checkpoint resume 时爆炸（step 40 左右），
+  v10 是从头训练时在 7600-8000 步自然收敛区爆炸——说明 adaptive LR
+  在任何 policy 趋于平稳的阶段都可能触发爆炸，并非只有 resume 时。
+
+  对比 v6（相同参数但 adaptive LR 未爆炸）：
+    v6 LR 全程未超过 3.84e-4，v10 在 ~7.6k 步后反复触达 1e-2
+    v6 training 过 16k steps 无退化；v10 12.9k 时已崩溃至 2.59
+    原因待查：v10 早期进展较快（1-3k 陡升）可能改变了 KL 统计基线
+
+  feet_air_time_threshold=0.3 效果：
+    早期 terrain 上升速度与 v6/v9 相近，无明显加速
+    末尾 feet_air_time raw 从 v9 的 -0.0083 改善至 -0.001 左右（退化期数据）
+    阈值调整对抬腿质量有一定效果，但被崩溃掩盖
+
+结论：
+  - feet_air_time_threshold=0.3 是有效的，但崩溃原因与 threshold 无关
+  - adaptive LR 在 training 过程中同样会爆炸，不只是 resume 时
+  - 后续训练建议统一改为 fixed LR=1e-4（见修复方案），或使用 desired_kl 更保守的值
+
+---
+
+---
+
+### v11 — Fixed LR=1e-4 从头训练（Jul24_23-43-24_, 888 iters）✗ 冷启动失败
+变更（相对 v10）：
+  schedule      'adaptive' → 'fixed'
+  learning_rate 1e-3 → 1e-4
+
+结果：灾难性冷启动失败
+  terrain step 0 起单调下降，step 888 时跌至 0.0000（课程底部）
+  mean_reward 全程为负（-5 ~ +5，全期基本负值）
+  noise_std 全程 0.92~0.95，从未有效下降（v6 同期已降至 0.87 以下）
+
+根本原因：fixed LR=1e-4 与从头训练不兼容（冷启动问题）
+  初始策略是完全随机的（noise_std=1.0），奖励为负，地形课程快速下降。
+  fixed LR=1e-4 步长极小，每步 policy 更新幅度太小，无法快速逃离负奖励区。
+  对比 v6（adaptive LR）早期行为：
+    v6 在 step 3-7 内 LR 从 4.4e-4 飙至 5e-3，大步长快速摆脱随机初始化
+    v11 全程卡在 1e-4，noise_std @step 40 仍 0.93（v6 同期已至 0.70）
+    v6 @step 48 出现第一个正 reward；v11 @step 888 仍未见正 reward
+
+  结论：
+  - adaptive LR 在早期（0~300步）是必要的：初始 KL 大 → LR 自动上冲到 1e-3~5e-3
+    提供足够大的梯度步让策略快速建立基本行走能力
+  - fixed LR=1e-4 只适合 resume 已收敛策略：此时 KL 本已很小，1e-4 足以
+  - "adaptive LR 在从头训练时会爆炸"的结论（v10）是有条件的：
+    爆炸发生在 step 7600 策略趋于收敛时，而非早期探索阶段
+  - 正确方案：warm-up 阶段用 adaptive，收敛时手动或自动切换 fixed
+
+修复方案（v12）：
+  先用 adaptive LR=1e-3 训练至 terrain 稳定（约 3000-5000步）
+  在 surrogate 接近 0 或 terrain 开始不动时，改为 fixed LR=1e-4 resume
+  或：设置更保守的 adaptive LR 上限（max_lr 降至 1e-3，避免 1e-2 峰值）
+
+---
+
+---
+
+### v12 — 降低地形难度 step_height_scale=0.074（Jul25_12-49-59_, 12064 iters）✗ 再次崩溃
+变更（相对 v9）：
+  step_height_scale  0.18 → 0.074  (最大台阶高度从 0.212m 降至 0.117m)
+  schedule           'fixed' → 'adaptive'  (从头训练，恢复 adaptive)
+  learning_rate      1e-4 → 1e-3
+
+阶段趋势：
+  terrain_level:
+    0-1k:   mean=1.76  slope=+3.04/1k（快速爬升）
+    1k-4k:  mean=3.79  slope=+0.22/1k（持续上升，突破 v6 峰值 3.88）
+    4k-8k:  mean=4.14  slope=+0.01/1k（高位震荡，峰值 4.27 @step ~5700）
+    8k-12k: mean=3.41  slope=-0.33/1k（持续崩溃）
+  末尾 terrain: 2.95（比峰值低 1.3 level）
+
+  terrain≥4.0 占比（后半段 step 6k+）: 46.1% → 说明 4k-8k 期间大量时间稳定在 4.0 以上
+  noise_std: 0.57 → 0.44（step 8k 时最低），之后回升至 0.49
+  surrogate: step 8500 从 -0.005 突然转正（+0.003），step 8600 跳至 +0.007 → 崩溃起点
+  mean_reward: step 8300 峰值 20.6，崩溃后跌至 14.7（跌幅 29%，比 v10 轻）
+  ep_length: 崩溃后仍维持 960+，robot 没有频繁跌倒（与 v10/v8 不同）
+
+LR 爆炸记录：
+  step 2600: LR=1e-2（第一次脉冲），surrogate 接近 0 → LR 冲顶，随即回落
+  step 5500: LR=2.92e-3（第二次脉冲）
+  step 8500: surrogate 转正，LR 被压至 1e-5，此后长期在 1e-5~2.25e-5 徘徊
+  → adaptive LR 再次在收敛区爆炸，与 v10 模式完全相同
+
+末尾 raw 值（最后 2000 步，step 10k-12k，退化期）：
+  feet_air_time raw:  -0.00657  (v9=-0.0083，有改善，但退化期数据)
+  tracking_lin_vel:    0.689   (v9=0.863，下降 20%)
+  orientation raw:     0.193   (v9=0.033，严重恶化 → robot 躯干大幅倾斜)
+  action_rate raw:     6.949   (v9=7.43，接近)
+  smoothness raw:      1.032   (v9=1.04，接近)
+  joint_power(W):      352     (v9=394W)
+
+重要发现：
+  1. 降低 step_height_scale 有效：terrain 峰值从 v9 的 4.07 提升至 4.27，4k-8k 期间
+     terrain≥4.0 占比高达 46%（v9 仅 24%），说明降低地形难度确实让 policy 能到达更高 level
+  2. 崩溃原因仍是 adaptive LR 爆炸，与 step_height 无关
+     step 8500 surrogate 转正时 LR 已被压至 1e-5，策略更新陷入停滞
+  3. orientation raw 末尾 0.193（v9=0.033）：崩溃后 robot 躯干严重倾斜，
+     但 ep_length 仍维持 960+，说明 robot 没有摔倒，只是步态质量变差
+  4. 本次 adaptive LR 爆炸时间点（step 2600/5500/8500）比 v10（step 7600）更早更频繁，
+     可能与新地形难度下 KL 统计特性变化有关
+
+结论：
+  - step_height_scale=0.074 方向正确，terrain 峰值和稳定性均优于 v9
+  - adaptive LR 爆炸是反复出现的系统性问题，必须根治
+  - 下一步：用 fixed LR=1e-4 从头训练（v13），彻底避免 LR 爆炸
+  - v11 的冷启动失败是因为 fixed LR=1e-4 初始步长不足，但 v12 已证明 adaptive LR
+    在收敛期必然爆炸；需要找到既能冷启动又不爆炸的方案
+
+---
+
 ================================================================================
 
-## 当前配置（v10，从头训练）
-  [PPO]
-  schedule      = 'adaptive'  # 从头训练用 adaptive，初期 LR 自动爬升
-  learning_rate = 1e-3        # adaptive 初始值，实际由 KL 自动调整
-  entropy_coef  = 0.01
-  ※ resume 已收敛 checkpoint 时须改为 schedule='fixed', learning_rate=1e-4（见 v8 教训）
+### v13 — adaptive LR + max_learning_rate=5e-4 从头训练（Jul25_17-33-07_, 20266 iters）✗ noise_std 发散
+变更（相对 v12 / v9 基线）：
+  max_learning_rate 新增   5e-4     (ppo.py 参数化后首次使用，上限从 1e-2 降至 5e-4)
+  schedule          不变   adaptive
+  learning_rate     不变   1e-3
+  step_height_scale 不变   0.074
+  rewards / PD      不变
 
-  [rewards]
-  orientation        = -0.3
-  ang_vel_xy         = -0.05
-  joint_power        = -5e-6
-  power_distribution = -5e-7
-  action_rate        = -0.01
-  smoothness         = -0.01
-  dof_acc            = -1.5e-7
-  feet_air_time      = 0.15
-  feet_air_time_threshold = 0.3  # boying_config.py 覆盖；基类默认 0.5（GO1 不受影响）
-  [PD] stiffness=40, damping=1.5
+阶段趋势：
+  terrain_level：
+    0-1k:   2.49→1.23（冷启动震荡）
+    1k-4k:  快速爬升至 4.1-4.2
+    4k-10k: 稳定震荡在 4.1-4.3（peak 4.49）
+    10k-20k: 缓慢上移至 4.2-4.5，posterior(10k+) mean=4.30  max=4.49
+    全程 terrain≥4.0 占比: 82.2%；后半段: 100%（从未低于 4.0）
+
+  LR（max_learning_rate=5e-4 生效）：
+    min=1e-5, max=5e-4（触达上限 577次=2.8%，触达下限 9次=0.04%）
+    实际分布：[1e-5,1e-4)=27.8%，[1e-4,2e-4)=46.7%，[2e-4,3e-4)=18.1%，mean=1.58e-4
+    全程未触达 v10/v12 的 1e-2 爆炸区 → LR 爆炸问题已彻底修复
+
+  surrogate：全程负值（-0.004~-0.001），无正值翻转，policy 更新方向正确
+
+  noise_std（新问题）：
+    0k: 0.996（随机初始化）
+    4k-8k: 0.835~0.841（正常收敛期）
+    10k: 0.917（拐点，开始上升！）
+    15k: 1.566
+    20k: 2.363（远超初始值 1.0，持续发散）
+
+  autoenc_loss：step 0=7623 → step 4k=13.9（正常），之后缓慢回升至 28.3（step 20k）
+
+末尾 raw 值（step 18k-20k）：
+  tracking_lin_vel: 0.648（v9=0.863，差距 25%）
+  action_rate raw:  13.03（v9=7.43，差距 +75%！）
+  smoothness raw:   1.696（v9=1.04，差距 +63%）
+  feet_air_time:    -0.0101（v9=-0.0083，步态更差）
+  orientation raw:  0.033（v9=0.033，相同——不是瓶颈）
+  joint_power:      392W（v9=394W，基本相同）
+  mean_reward:      ~10.6（v9=19.6，差距 46%）
+
+LR 爆炸结论：
+  ✓ max_learning_rate=5e-4 完全修复 LR 爆炸问题（v10/v12 的反复崩溃已消除）
+  ✓ surrogate 全程负值，policy 更新方向始终正确
+  ✓ terrain 后半段 100% ≥4.0，稳定性大幅优于 v12（末尾退化至 2.95）
+
+noise_std 发散根本原因：
+  PPO loss = surrogate + value_loss - entropy_coef * entropy
+  entropy_coef=0.01 → 损失函数主动激励高熵（鼓励探索）
+  max_learning_rate=5e-4 过低 → LR 长期压在 1e-4~2e-4（73% 时间 <2e-4）
+  低 LR 导致每步 policy 更新幅度极小，无法压制 entropy 项的扩张效应
+  → noise_std 从 step 9k 起持续上升（探索压过收敛）
+  → 高 noise_std → 动作随机性 ↑ → action_rate/smoothness 恶化 → 奖励下降
+  对比 v6：LR 均值 4.65e-4（v13 的 2.9 倍），且可在收敛期自由降至 1e-5，
+          entropy 压制充分，noise_std 稳定在 0.50
+
+terrain 停留在 4.0-4.5 分析：
+  step_height_scale=0.074 时，level 4 对应 step_height=0.080m，level 9=0.117m
+  terrain 在 4.1-4.5 徘徊说明 policy 已能应对 0.083~0.088m 的台阶
+  但 noise_std=2.36 导致动作极度抖动，无法稳定执行抬腿动作，阻碍了进一步提升
+
+结论：
+  max_learning_rate=5e-4 正确修复了 LR 爆炸，但引入了 noise_std 发散副作用。
+  需要同时调整 entropy_coef（降低探索激励）和适当放宽 max_learning_rate。
+
+---
+
+### v14 — entropy_coef=0.001 + resume from v13 step8000（Jul26_01-07-50_, 8076 iters）⚠ LR 死锁
+变更（相对 v13）：
+  entropy_coef  0.01 → 0.001   (降低 10x，压制 noise_std 发散)
+  max_learning_rate 5e-4 → 8e-4 (略微放宽)
+  schedule      不变 adaptive
+  从 Jul25_17-33-07_ step 8000 恢复（noise_std=0.840，尚未发散的最佳点）
+
+注：日志 step 0 = 实际训练 step 8000，日志 step 8076 = 实际 step ~16076
+
+阶段趋势：
+  noise_std（核心指标）：
+    日志 step 0: 0.840（resume起点，v13残留值）
+    日志 step 1k: 0.425（快速收敛！entropy_coef降低立即生效）
+    日志 step 4k: 0.279
+    日志 step 8k: 0.249（末尾，持续下降无反弹）
+    对比：v13末尾=2.363，v9末尾=0.446，v14末尾=0.249（历史最低）✓
+
+  action_rate raw: 4.18（v9=7.43，改善44%；v13=13.03，改善68%）✓ 历史最佳
+  smoothness raw:  0.305（v9=1.04，改善71%）✓ 历史最佳
+
+  tracking_lin_vel: 0.709（v9=0.863，差距18%）— 有提升空间
+  mean_reward: 14.7-16.9（v9=19.6，差距约15%）
+
+  terrain_level：
+    全程在 4.0-4.3，后期（step>6k）mean=4.07  max=4.16
+    terrain≥4.0 占比: 99.8%；terrain≥4.5: 0%
+    → terrain 无突破，卡在与 v13 相同的平台
+
+  LR（新问题 - LR 死锁）：
+    LR=1e-5（下限）占比: 52.7%；LR>1e-4 仅占 1.4%
+    mean=2.05e-5（极低，基本是死的）
+    surrogate 全程正值（mean=+0.001，正值占 55.1%）
+    → KL 持续 > 2×desired_kl → adaptive LR 反复被压到 1e-5
+
+LR 死锁根本原因：
+  从 v13 step 8000（noise_std=0.84）的半发散状态 resume，
+  policy 参数处于"高熵但低奖励"的状态，advantage 函数估计误差大。
+  entropy_coef 从 0.01 骤降至 0.001 后，policy 快速向低熵收缩，
+  每步参数变化幅度超过 clip 范围 → ratio>1 → surrogate 为正 → KL 爆炸
+  → adaptive LR 反复被压死在 1e-5 → policy 更新停滞 → terrain 无法进步
+
+结论：
+  ✓ entropy_coef=0.001 对 noise_std 的压制效果极强（0.84→0.25，优于 v9）
+  ✓ action_rate/smoothness 历史最佳，说明动作平滑性得到根本改善
+  ✗ LR 死锁：surrogate 正值 + KL 过大导致 adaptive LR 失效
+  ✗ terrain 未能突破 4.0-4.1 平台，policy 学习基本停滞
+  ✗ base_height 异常：躯干高度偏差 0.118m（v9/GO1 仅 0.042m，相差 2.8x）
+     base_height scale=-1.0（GO1默认）对台阶地形 Boying 过强
+     v15 改为 -0.5，给机器人更多空间自然调整躯干高度应对台阶
+  根因：从半发散状态 resume 时 entropy 骤降 → KL 过大 → LR 死锁
+  解决方案：从头训练（避免 resume 的状态不匹配），或改用 fixed LR
+
+---
+
+================================================================================
+
+## 当前配置（v15，从头训练）
+  [PPO] entropy_coef=0.001, max_learning_rate=8e-4
+  [rewards] base_height=-0.5
+  → 已训练 Jul26_18-59-50_，809 iters，提前终止
+
+### v15 — entropy_coef=0.001 + base_height=-0.5 从头训练（Jul26_18-59-50_, 809 iters）✗ terrain 跌至 0
+  terrain 从 step 0 的 2.49 单调下降，step 250+ 跌至 0.001，全程未上升
+  noise_std step 200 降至 0.35（过低），step 809 降至 0.25
+  mean_reward 稳定在 6-7（policy 学会在 level≈0 平地上存活，但不探索台阶）
+  LR step 200+ 长期压在 5e-5，surrogate 接近 0（收敛但收敛到错误策略）
+
+  根本原因：entropy_coef=0.001 使 noise_std 在 step 200 就降至 0.35（GO1 step 4000 才到 0.37）
+    policy 过早锁定到"平地确定性策略"，失去探索台阶的随机性
+    地形课程因 robot 无法通过台阶持续降级 → terrain 单调跌至 0
+    entropy_coef=0.001 与 entropy_coef=0.01 的差异：
+      v15 noise_std@step200 = 0.35（过低，失去探索能力）
+      v6  noise_std@step200 = 0.65（适中，仍能探索台阶）
+
+  结论：entropy_coef=0.001 过低，回退至 0.01
+
+---
+
+================================================================================
+
+### v16 — entropy_coef=0.01 + max_lr=8e-4 + base_height=-0.5 从头训练（Jul26_19-30-54_, 30000 iters）✗ noise_std 发散
+  terrain：0-2k 爬升至 2.9，2k-4k 达 3.45，4k-8k 平台约 3.57-3.65，8k-30k 缓慢爬升至 3.99
+  noise_std：step 8000 极小值 0.637（拐点），之后单调发散至 5.233（终点）
+    发散速率约 +0.16/1000步，与 v13 相同模式，仅拐点从 9k 提前到 8k
+  LR：step 0-8k mean=2.6e-4（正常），step 8k+ 被 KL 压至 7e-5（max_lr=8e-4 此后再未触达）
+  autoenc_loss：step 9500 后稳定在 8.1-8.4，完全收敛，未受 noise_std 影响
+  mean_reward 末尾（step 25k-30k）：18.39，接近 v9 的 19.6（意外良好）
+  tracking_lin_vel 末尾：0.847（接近 v9 的 0.863）
+  action_rate 末尾：-0.083（比 v9 更好！noise_std 发散反而带来了多样探索）
+  terrain 末尾（step 25k-30k）：mean=3.99，与 v9 相同平台，未能突破
+
+  根本原因：entropy_coef=0.01 在 LR 降至 7e-5 后无法被压制
+    PPO loss 中 -entropy_coef×entropy 的梯度 = -entropy_coef/σ，持续推 σ 上升
+    adaptive LR 因高 KL 被压低 → 低 LR 无法压制熵激励 → σ 继续上升 → KL 更高 → 螺旋
+    max_lr=8e-4 对此无效：实际 LR 在 step 8k 后从未触达 max_lr 上限
+
+  与 v13 对比：
+    v13 末尾 noise_std=2.36，mean_reward≈10.6，tracking=0.648（严重恶化）
+    v16 末尾 noise_std=5.23，mean_reward=18.39，tracking=0.847（远优于 v13）
+    原因：v13 的熵爆炸发生在 terrain 卡住时（纯混乱），v16 的发散伴随 terrain 仍在爬升（有效探索）
+
+  结论：
+    - max_learning_rate 调整（5e-4→8e-4）对 noise_std 发散无效
+    - entropy_coef=0.01 的根本问题未解决
+    - 下一步：entropy_coef=0.005（0.01 和 0.001 的中点）
+
+---
+
+================================================================================
+
+## 当前配置（v17，从头训练）
+  [PPO]
+  schedule          = 'adaptive'
+  learning_rate     = 1e-3
+  max_learning_rate = 8e-4
+  entropy_coef      = 0.005  # v17：0.01 发散(v13/v16)，0.001 锁死(v15)，0.005 取中点
+
+  [terrain / rewards / PD]  —— 与 v16 完全相同，不变
 
   训练命令：
     python legged_gym/scripts/train.py --task boying --headless
 
+  关键监控点：
+    step  200：noise_std 应在 0.55-0.75（v15=0.35 死，v16=0.73 正常）
+    step 8000：noise_std 拐点，看是否仍发散（v16 拐点在此处）
+    step12000：与 v16 同期 1.17 对比，若低于 0.8 则方向正确
+
 ## 下一步建议
-  P1【观察 v10 前 5000 步，terrain 能否比 v9 更快到达 3.9+】
-     feet_air_time 阈值 0.3s 从一开始就生效，预期更早出现正向抬腿激励。
-     对比 v9：step 1200 首次达到 3.86，step 2000 达到 3.93。
+  P1【v17：entropy_coef=0.005 从头训练（当前执行）】
+     0.01 发散（v13/v16），0.001 锁死（v15），0.005 预期 noise_std 在 0.4-0.6 稳定
+     若 step 10k 时 noise_std 仍上升 → 可叠加 desired_kl=0.02 或 σ clamp(max=1.0)
+     目标：noise_std 稳定在 0.45-0.65，terrain 突破 4.0 平台，达到 level 5+
 
-  P2【若 terrain 稳定在 4.0 平台后仍无法突破，考虑调大 feet_air_time scale】
-     当前 scale=0.15，可尝试增大到 0.2，加强抬腿信号权重。
+  P2【备用：σ 截断 clamp（若 v17 仍发散）】
+     在 ppo.py optimizer.step() 后加：self.actor_critic.std.data.clamp_(max=1.0)
+     直接限制 noise_std 上限，保证不发散，2 行代码
 
-  P3【收敛后如需 resume，先改 PPO：schedule='fixed', learning_rate=1e-4】
-     避免 v8 的 adaptive LR 爆炸问题。
+  P3【terrain 稳定后：feet_air_time_threshold 0.5 → 0.3】
+     全版本 feet_air_time 均为负值，v17 稳定后降低 threshold
 
 ## 已废弃方向
-  - orientation 加强（>-0.3）：v7 证明致命，物理倾斜与 GO1 相同，无必要
-  - power_distribution 加大：v6 实付惩罚已超 GO1，加大只破坏稳定性
-  - joint_power 加大：v3 证明 raw 功耗不受 scale 影响，k=40 物理限制
-  - adaptive LR + checkpoint resume：v8 证明此组合致命，resume 时必须用 fixed LR
+  - orientation 加强（>-0.3）：v7 证明致命
+  - power_distribution 加大：v6 实付惩罚已超 GO1
+  - joint_power 加大：raw 功耗不受 scale 影响
+  - adaptive LR + 收敛 checkpoint resume：v8 证明致命
+  - fixed LR=1e-4 从头训练（冷启动阶段）：v11 证明失败
+  - adaptive LR 无上限（max_lr=1e-2）：v10/v12 均在收敛期爆炸
+  - max_learning_rate=5e-4 + entropy_coef=0.01：v13 证明 noise_std 发散
+  - entropy_coef 骤降（0.01→0.001）+ resume 半发散 checkpoint：v14 证明 LR 死锁
+  - entropy_coef=0.001 从头训练：v15 证明 policy 过早收敛到平地策略，terrain 跌至 0
+  - max_learning_rate 调整（5e-4/8e-4）：v13/v16 证明无法阻止 noise_std 发散（LR 被 KL 压低，非 max_lr 限制）
+  - base_height=-1.0（GO1默认）：v14 证明 Boying 台阶地形下躯干偏差 2.8x 过大，改为 -0.5
 
 ================================================================================

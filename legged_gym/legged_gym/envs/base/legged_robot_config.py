@@ -65,6 +65,9 @@ class LeggedRobotCfg(BaseConfig):
         terrain_proportions = [0.1, 0.1, 0.35, 0.35, 0.1]
         # trimesh only:
         slope_treshold = 0.75 # slopes above this threshold will be corrected to vertical surfaces
+        # step height formula: step_height = step_height_base + step_height_scale * difficulty
+        step_height_base = 0.05
+        step_height_scale = 0.18  # go1 default; override per robot to cap max step height
 
     class commands:
         curriculum = False

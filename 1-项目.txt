@@ -1,18 +1,23 @@
-conda activate dreamwaq
-python3 legged_gym/legged_gym/scripts/train.py --task=go1 --headless
 
 pos = [0.0, 0.0, 0.40] # x,y,z [m]
-default_joint_angles = { # = target angles [rad] when action = 0.0
-           ".*R_hip_joint": -0.1,                                                                                        
-           ".*L_hip_joint": 0.1,                                                                                         
-           "F[L,R]_thigh_joint": 0.8,                                                                                    
-           "R[L,R]_thigh_joint": 1.0,                                                                                    
-           ".*_calf_joint": -1.5, 
+default_joint_angles = { # = target angles [rad] when action = 0.0                                                                                                              
+    'FL_hip_joint':   0.1,                                                                                                                         
+    'RL_hip_joint':   0.1,                                                                                                                         
+    'FR_hip_joint':  -0.1,                                                                                                                         
+    'RR_hip_joint':  -0.1,                                                                                                                         
+    'FL_thigh_joint': 0.7,                                                                                                                         
+    'FR_thigh_joint': 0.7,                                                                                                                         
+    'RL_thigh_joint': 0.8,                                                                                                                         
+    'RR_thigh_joint': 0.8,                                                                                                                         
+    'FL_calf_joint': -1.5,                                                                                                                         
+    'FR_calf_joint': -1.5,                                                                                                                         
+    'RL_calf_joint': -1.5,                                                                                                                         
+    'RR_calf_joint': -1.5,                                                                                                                         
 }
-
-control_type = 'P'
-stiffness = {'joint': 60.}  # [N*m/rad]
-damping = {'joint': 4.5}     # [N*m*s/rad]
+  
+control_type = 'P'                                                                                                    
+stiffness = {'joint': 40.}  # [N*m/rad]  Method C: k=40/d=1.5                                                                                      
+damping = {'joint': 1.5}    # [N*m*s/rad]                                                                                                          
 # action scale: target angle = actionScale * action + defaultAngle
 action_scale = 0.25
 # decimation: Number of control action updates @ sim DT per policy DT
@@ -20,12 +25,96 @@ decimation = 4
 
 /plan 根据代码完整分析'/home/wkl/DreamWaQ'整个项目，其中训练任务python3 legged_gym/legged_gym/scripts/train.py --task=go1 --headless整个的训练过程是如何的？尤其关注与go1机器人本体配置相关的文件，比如，机器人的模型，关节相关的限位和控制参数，以及加载环境中机器人关节位置和高度的配置参数。我让你了解这些是因为，我想创建一个新的任务，相较于go1任务只有机器人本体变化（也有和机器人控制相关的参数变化），新的机器人为'/home/wkl/DreamWaQ/legged_gym/resources/robots/boying_description',然后新的机器人一些重要配置如下。关于新任务创建，要尽可能创建新的代码，单独为boying机器人创建相关的任务配置文件，但是核心的是，和go1任务相比，除了机器人本体和相关配置参数有变化，其他完全复制go1的任务配置文件，相当于是替换了，但是代码文件是boying单独的，不和go1的代码配置文件有冲突。现在理清我的需求，开始你的修改，你可以启动subagent来分别分析相关的任务所需要的信息。在此之前，你先给自己生成一份详细的提示词和执行计划，有需要决策的点告诉我 
 
+cd DreamWaQ/
+conda activate dreamwaq
+
+python3 legged_gym/legged_gym/scripts/train.py --task=go1 --headless
+
 python3 legged_gym/legged_gym/scripts/train.py --task=boying --headless --num_envs=8192
-tensorboard --logdir /home/wkl/DreamWaQ/legged_gym/logs/rough_boying --host 0.0.0.0 --port 6007
+
+tensorboard --logdir /home/wkl/DreamWaQ/legged_gym/logs --host 0.0.0.0 --port 6007
+python legged_gym/legged_gym/scripts/play.py --task boying --load_run Jul26_19-30-54_ --checkpoint 30000
 
 ok，现在忘记之前的修改，对比boying和go1两个任务，现在还有什么区别，从机器人模型，机器人参数配置，训练的网络结构，训练的超参数，奖励函数，域随机化，课程设计，终止条件，一项项的进行分析。
 你查看一下boying机器人，碰撞体是不是有什么特殊的地方，并且终止条件是不是也可以修改一下？只分析
 ok，现在可能有两个需要优化的点，就是机器人初始化的高度和目标高度，看看有没有什么区别？以及因为两个机器人本身的重量，模型特点以及机器人的控制参数不一样，需要定制化的奖励函数，你是否有奖励塑型的经验？有的话开始你的分析，给我修改计划
+
+autoenc_function 是什么
+  DreamWaQ 的核心架构是带 CeNet（Context Estimation Network，上下文估计网络） 的策略网络：
+  观测历史（过去5帧obs）
+          ↓
+      CeNet (β-VAE 编码器)
+          ↓
+    latent code（隐向量）
+          ↓
+     拼接当前观测 → Actor → 动作
+
+  CeNet 的任务：从机器人的历史感知序列里估计那些"不可直接测量"的信息——主要是线速度估计（sim-to-real 的核心障碍：真机无法直接读速度）和地形/环境隐变量。
+
+  autoenc_loss 是这个 β-VAE 网络的训练损失，三项之和：
+
+  autoenc_loss = MSELoss(估计速度, 真实速度)          # 速度估计精度
+               + MSELoss(重建观测, 真实观测)           # 观测重建精度
+               + β × KL散度                          # 隐变量正则化
+
+  值越小 = 速度估计越准 + 重建越好 + 隐变量分布越规整。
+
+mean_noise_std 是什么
+
+  Policy 的动作分布是高斯分布 a ~ N(μ, σ²)，mean_noise_std 就是这个 σ（动作标准差），是一个可学习参数（初始值 1.0）。
+
+  - 高 σ = 动作更随机，探索能力强
+  - 低 σ = 动作更确定，policy 更保守
+  - 正常训练：σ 应该从 1.0 逐渐降低并稳定在某个值（v9 稳定在 0.45，v6 稳定在 0.50）
+
+训练稳定的标准
+  在 PPO legged locomotion 训练中，"稳定"需要同时满足以下条件：
+  ┌──────────────────┬─────────────────────────────┬──────────────────────────────────┐
+  │       指标       │          稳定标准           │               说明               │
+  ├──────────────────┼─────────────────────────────┼──────────────────────────────────┤
+  │ terrain_level    │ 不单调下降，有上升趋势      │ 最核心指标，反映 policy 实际能力 │
+  ├──────────────────┼─────────────────────────────┼──────────────────────────────────┤
+  │ surrogate loss   │ 持续为负值                  │ 为正 → policy 更新方向错误       │
+  ├──────────────────┼─────────────────────────────┼──────────────────────────────────┤
+  │ noise_std        │ 稳定在 0.35~0.60 之间       │ 过低 → 过收敛；过高 → 发散       │
+  ├──────────────────┼─────────────────────────────┼──────────────────────────────────┤
+  │ learning_rate    │ 有波动，不长期卡在下限      │ 卡死在 1e-5 = LR 死锁            │
+  ├──────────────────┼─────────────────────────────┼──────────────────────────────────┤
+  │ mean_reward      │ 先升后平台，与 terrain 同步 │ 单独上升但 terrain 下降 = 假收敛 │
+  ├──────────────────┼─────────────────────────────┼──────────────────────────────────┤
+  │ value_function   │ 低且稳定（< 0.01）          │ 反映 critic 估计质量             │
+  ├──────────────────┼─────────────────────────────┼──────────────────────────────────┤
+  │ tracking_lin_vel │ > 0.5（对比 v9=0.863）      │ 速度追踪是行走能力的直接体现     │
+  └──────────────────┴─────────────────────────────┴──────────────────────────────────┘
+
+  满足以下 5 条 视为训练稳定：
+
+  ┌────────────────┬───────────────────────────────────────────────────┐
+  │      指标      │                     稳定标准                      │
+  ├────────────────┼───────────────────────────────────────────────────┤
+  │ surrogate loss │ 持续负值，无正值翻转                              │
+  ├────────────────┼───────────────────────────────────────────────────┤
+  │ noise_std      │ 不单调上升，稳定在某区间                          │
+  ├────────────────┼───────────────────────────────────────────────────┤
+  │ value_loss     │ 下降或平稳                                        │
+  ├────────────────┼───────────────────────────────────────────────────┤
+  │ mean_reward    │ 上升或稳定（不崩溃）                              │
+  ├────────────────┼───────────────────────────────────────────────────┤
+  │ LR             │ 不长期死在 1e-5（死锁），也不反复触达上限（爆炸） │
+  └────────────────┴───────────────────────────────────────────────────┘
+
+● entropy_coef 是 PPO 损失函数里的熵正则化系数。
+
+    PPO 的总损失是：
+    loss = surrogate_loss + value_loss_coef × value_loss - entropy_coef × entropy
+
+  entropy（策略熵） 衡量动作分布的随机程度。对于高斯策略，entropy 与 noise_std 直接正相关——noise_std 越大，entropy 越高。
+
+  entropy_coef 的作用：
+
+  - entropy_coef > 0：损失函数里减去 entropy_coef × entropy，意味着熵越大 loss 越小。梯度下降时 PPO 会主动增大策略的随机性，鼓励探索，防止过早收敛到局部最优。
+  - entropy_coef = 0：不对熵施加任何激励或惩罚，策略完全由 surrogate loss 和 value loss 驱动。
+  - entropy_coef < 0（罕见）：主动惩罚高熵，强制策略收敛。
 
 综合分析与结论
   
