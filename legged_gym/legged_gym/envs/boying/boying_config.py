@@ -64,7 +64,11 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         only_positive_rewards = False
         soft_dof_pos_limit = 0.9
         base_height_target = 0.32
-        feet_air_time_threshold = 0.5  # same as go1; gradient still incentivizes longer air time even when negative
+        # v18: v17 stayed negative for the full 30k run at 0.5 s and converged
+        # to a low-clearance shuffling gait. Lowering only this threshold makes
+        # attainable swing phases positively reinforced while preserving the
+        # proven v17 reward scales and PPO settings.
+        feet_air_time_threshold = 0.3
 
         class scales( LeggedRobotCfg.rewards.scales ):
             # --- stability: boying has higher CoM; orientation still ~50% worse than GO1 at equal steps ---

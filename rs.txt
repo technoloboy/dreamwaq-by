@@ -595,48 +595,93 @@ LR 死锁根本原因：
 
   step 25k+ noise_std 轻微回升原因：terrain 4.1 遇新平台，policy 需更多探索
     此非发散前兆（量级 0.33→0.455，vs v16 的 0.63→5.23）
+    末尾回升速率 +0.028/1k（实测），外推至 step 40k ≈ 0.735（接近危险区）
+
+  步态分析（Jul28，从 TensorBoard 日志提取，基于训练数据统计）：
+    注：IsaacGym 在 WSL2 中 PhysX GPU pipeline 无法初始化，无法直接 play；
+        以下数据来自训练时每 episode 的实际运动统计，1000步/episode，可靠。
+
+    feet_air_time：
+      全程 100% 负值（scaled/ep 均值=-0.0100，unscaled/ep=-0.0666）
+      threshold=0.5s 整个训练从未被超越，机器人无正向抬腿激励
+      步态模式：贴地滑步而非标准抬脚步态（air_time < 500ms 全程）
+      对比 v9(threshold=0.5)：末尾 scaled=-0.0083，v17=-0.0100（略差，地形更难）
+      结论：threshold=0.5 是地形卡 4.1 的深层原因之一，必须降低
+
+    腿部平滑度（step 5k → 30k 改善幅度）：
+      action_rate:  -0.064 → -0.044（改善 31%）★ 历史最优
+      smoothness:   -0.072 → -0.047（改善 35%）★ 历史最优
+      dof_acc:      -0.046 → -0.042（改善  9%）
+      → 腿部协调性持续提升，动作越来越干净
+
+    躯干稳定性：
+      ang_vel_xy:   -0.067 → -0.047（改善 31%）
+      base_height:  -0.017 → -0.002（改善 88%，近乎零偏差）✓
+      → 躯干稳定性正常，高度控制最优
+
+    不跌倒率：
+      step 5k: 959/1000 步（96%）
+      step 25k: 993/1000 步（99.3%）← 最优
+      step 30k: 984/1000 步（98.4%）
+
+    checkpoint 25k vs 30k 对比：
+      terrain_level:    25k=4.14 > 30k=4.11  → 25k 胜
+      feet_air_time:    25k=-0.00955 > 30k=-0.01003  → 25k 胜
+      ang_vel_xy:       25k=-0.046 > 30k=-0.047  → 25k 胜
+      base_height:      25k=-0.0017 > 30k=-0.0018  → 25k 胜
+      tracking_lin_vel: 25k=0.884 < 30k=0.898  → 30k 胜
+      action_rate:      25k=-0.051 < 30k=-0.044  → 30k 胜（更平滑）
+      smoothness:       25k=-0.006 < 30k=-0.005  → 30k 胜
+      noise_std:        25k=0.328 < 30k=0.455  → 25k 胜（更确定性）
+      结论：model_25000.pt 综合步态质量更好（terrain/稳定性/noise_std），
+            推荐部署权重；model_30000.pt 动作更平滑但策略稍松散
+
+    当前能跨越台阶高度：≈ 8.0cm
+      terrain_level 稳定在 4.1，step_height = 0.05 + 0.074×0.41 = 0.080m
 
   结论：
     ✓ entropy_coef=0.005 是目前最优配置，noise_std 问题基本解决
     ✓ 奖励质量全面超越历史所有版本
-    ⚠ terrain 仍停在 4.1，feet_air_time 全程负值（threshold=0.5 过高）
-    → 下一步：continue training 50k 或调低 feet_air_time_threshold
+    ✓ 躯干稳定、不跌倒率高、动作平滑度历史最优
+    ⚠ 步态为贴地滑步，无正向抬腿激励（feet_air_time 全程负值）
+    ⚠ terrain 仍停在 4.1（≈8cm 台阶），feet_air_time_threshold=0.5 是关键瓶颈
+    ⚠ noise_std 末尾回升速率 +0.028/1k，继续训练至 50k 有发散风险
+    → 不再继续 v17 训练；下一步 v18：feet_air_time_threshold=0.5→0.3 从头训练
 
 ---
 
 ================================================================================
 
-## 当前配置（v17 继续训练 / v18）
+## 当前配置（v18，从头训练）
   [PPO]
   schedule          = 'adaptive'
   learning_rate     = 1e-3
   max_learning_rate = 8e-4
-  entropy_coef      = 0.005  ✓ 当前最优
+  entropy_coef      = 0.005  ✓ 当前最优（v17 验证）
 
   [terrain / PD]  —— 不变
 
-  [考虑修改]
-  feet_air_time_threshold = 0.3  # 从 0.5 降低，全版本 feet_air_time 均为负值，给正向步态激励
+  [变更]
+  feet_air_time_threshold = 0.3  # 0.5 → 0.3（v17 步态分析证实 0.5 全程无正向激励）
 
 ## 下一步建议
-  P1【继续当前 v17 训练至 50k 步（resume）】
-     step 30k 时 surrogate 仍加深（-0.0040），reward 仍上升（22.07），未收敛
-     设 max_iterations=50000，从 Jul27_14-35-57_ step 29999 resume：
-       python legged_gym/scripts/train.py --task boying --headless \
-         --resume --load_run Jul27_14-35-57_ --checkpoint 29999
-     关键观察：step 35k noise_std 是否超过 0.7（若超过说明末尾发散加速）
+  P1【启动 v18：feet_air_time_threshold=0.5→0.3，从头训练】
+     v17 步态分析（Jul28）证实 threshold=0.5 是地形卡 4.1 的关键瓶颈
+     v10 已验证 threshold=0.3 方向正确（崩溃原因是 adaptive LR 爆炸，与 threshold 无关）
+     v17 的 entropy_coef=0.005 现在提供了稳定保障，v10 的崩溃条件已消除
+     训练命令：python legged_gym/scripts/train.py --task boying --headless
 
-  P2【同时或之后：feet_air_time_threshold 0.5 → 0.3】
-     全版本 feet_air_time 均为负值，robot 从未获得正向步态激励
-     v17 步态质量已是历史最优（action_rate -0.044），降低 threshold 可给正向激励
-     预期：policy 学会更长的抬腿动作，有助于跨越台阶，突破 terrain 4.1 平台
+  监控点（基于 v17 经验）：
+     step  200：noise_std 应在 0.55-0.75
+     step 8000：noise_std 拐点，应 < 0.65
+     step 15k+：feet_air_time 是否出现正值（这是 v18 的核心验证指标）
+     step 25k：noise_std 回升速率，应 < +0.03/1k
 
-  P3【若 step 35k+ noise_std 超过 0.7：entropy_coef=0.003】
-     0.005 末尾轻微回升（0.327→0.455），0.003 可进一步压制
+  P2【若 v18 noise_std 回升速率 > 0.03/1k：entropy_coef=0.003】
+     v17 末尾回升速率 +0.028/1k，刚好在安全边界；0.003 可进一步压制
 
-  P4【长期：desired_kl=0.02（保持 LR 更高，提升探索能力）】
-     v17 末尾 LR 降至 6e-5，已经较低。desired_kl 从 0.01 调为 0.02 可让 LR 自然
-     维持更高水平，给 surrogate 梯度更大空间压制熵扩张
+  P3【长期：desired_kl=0.02】
+     v17 末尾 LR 降至 6e-5，提高 desired_kl 可让 LR 自然维持更高水平
 
 ## 已废弃方向
   - orientation 加强（>-0.3）：v7 证明致命
