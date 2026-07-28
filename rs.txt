@@ -573,18 +573,70 @@ LR 死锁根本原因：
     step 8000：noise_std 拐点，看是否仍发散（v16 拐点在此处）
     step12000：与 v16 同期 1.17 对比，若低于 0.8 则方向正确
 
+### v17 — entropy_coef=0.005 从头训练（Jul27_14-35-57_, 30000 iters）✓ 历史最优
+  noise_std：step 1k 快速降至 0.443，逐步降至 step 24k 极小值 0.327，末尾轻微回升至 0.455
+    全程未发散（v13/v16 发散至 2.36/5.23），末尾回升速率 +0.025/1k（v16 的 1/6）
+    FINAL 0.455 ≈ v9 最优 0.446，entropy_coef=0.005 有效压制发散
+
+  terrain：缓慢爬升 → step 15k 稳定在 4.07，FINAL=4.11
+    比 v9(4.00)/v16(3.99) 略高，但仍未突破 4.5 平台
+
+  mean_reward FINAL=22.07 ★ 历史最高（v9=19.6，GO1=18.44，超越 GO1 20%）
+  tracking_lin_vel FINAL=0.898 ★ 历史最高（v9=0.863，v16=0.847）
+  tracking_ang_vel FINAL=0.404 ★ 历史最高
+  action_rate FINAL=-0.044 ★ 历史最优（v9≈-0.074，v16=-0.083，改善 40%）
+  smoothness FINAL=-0.005 ★ 历史最优
+  base_height FINAL=-0.002（近乎零偏差，-0.5 scale 完全生效）
+
+  LR：全程自然衰减（2e-4→6e-5），无死锁（1e-5 仅出现 8次≈0%），无爆炸
+  autoenc：step 8k 后收敛至 7.5-8.5，FINAL=7.49（历史最佳）
+  surrogate：全程负值，FINAL=-0.0040（仍在加深，未收敛）
+  value_loss：FINAL=0.0032（历史最低，仍在下降）
+
+  step 25k+ noise_std 轻微回升原因：terrain 4.1 遇新平台，policy 需更多探索
+    此非发散前兆（量级 0.33→0.455，vs v16 的 0.63→5.23）
+
+  结论：
+    ✓ entropy_coef=0.005 是目前最优配置，noise_std 问题基本解决
+    ✓ 奖励质量全面超越历史所有版本
+    ⚠ terrain 仍停在 4.1，feet_air_time 全程负值（threshold=0.5 过高）
+    → 下一步：continue training 50k 或调低 feet_air_time_threshold
+
+---
+
+================================================================================
+
+## 当前配置（v17 继续训练 / v18）
+  [PPO]
+  schedule          = 'adaptive'
+  learning_rate     = 1e-3
+  max_learning_rate = 8e-4
+  entropy_coef      = 0.005  ✓ 当前最优
+
+  [terrain / PD]  —— 不变
+
+  [考虑修改]
+  feet_air_time_threshold = 0.3  # 从 0.5 降低，全版本 feet_air_time 均为负值，给正向步态激励
+
 ## 下一步建议
-  P1【v17：entropy_coef=0.005 从头训练（当前执行）】
-     0.01 发散（v13/v16），0.001 锁死（v15），0.005 预期 noise_std 在 0.4-0.6 稳定
-     若 step 10k 时 noise_std 仍上升 → 可叠加 desired_kl=0.02 或 σ clamp(max=1.0)
-     目标：noise_std 稳定在 0.45-0.65，terrain 突破 4.0 平台，达到 level 5+
+  P1【继续当前 v17 训练至 50k 步（resume）】
+     step 30k 时 surrogate 仍加深（-0.0040），reward 仍上升（22.07），未收敛
+     设 max_iterations=50000，从 Jul27_14-35-57_ step 29999 resume：
+       python legged_gym/scripts/train.py --task boying --headless \
+         --resume --load_run Jul27_14-35-57_ --checkpoint 29999
+     关键观察：step 35k noise_std 是否超过 0.7（若超过说明末尾发散加速）
 
-  P2【备用：σ 截断 clamp（若 v17 仍发散）】
-     在 ppo.py optimizer.step() 后加：self.actor_critic.std.data.clamp_(max=1.0)
-     直接限制 noise_std 上限，保证不发散，2 行代码
+  P2【同时或之后：feet_air_time_threshold 0.5 → 0.3】
+     全版本 feet_air_time 均为负值，robot 从未获得正向步态激励
+     v17 步态质量已是历史最优（action_rate -0.044），降低 threshold 可给正向激励
+     预期：policy 学会更长的抬腿动作，有助于跨越台阶，突破 terrain 4.1 平台
 
-  P3【terrain 稳定后：feet_air_time_threshold 0.5 → 0.3】
-     全版本 feet_air_time 均为负值，v17 稳定后降低 threshold
+  P3【若 step 35k+ noise_std 超过 0.7：entropy_coef=0.003】
+     0.005 末尾轻微回升（0.327→0.455），0.003 可进一步压制
+
+  P4【长期：desired_kl=0.02（保持 LR 更高，提升探索能力）】
+     v17 末尾 LR 降至 6e-5，已经较低。desired_kl 从 0.01 调为 0.02 可让 LR 自然
+     维持更高水平，给 surrogate 梯度更大空间压制熵扩张
 
 ## 已废弃方向
   - orientation 加强（>-0.3）：v7 证明致命
