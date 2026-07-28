@@ -64,9 +64,18 @@ def summary(events: List[dict]) -> dict:
         "min_step": events[int(np.argmin(values))]["step"],
         "max": float(np.max(values)),
         "max_step": events[int(np.argmax(values))]["step"],
+        "positive_fraction": float(np.mean(values > 0)),
+        "negative_fraction": float(np.mean(values < 0)),
+        "zero_fraction": float(np.mean(values == 0)),
         "tail_10pct_mean": float(np.mean([event["value"] for event in tail])),
         "tail_10pct_std": float(np.std([event["value"] for event in tail])),
         "tail_10pct_slope_per_1k": linear_slope(tail),
+        "tail_10pct_positive_fraction": float(
+            np.mean([event["value"] > 0 for event in tail])
+        ),
+        "tail_10pct_negative_fraction": float(
+            np.mean([event["value"] < 0 for event in tail])
+        ),
     }
 
 
