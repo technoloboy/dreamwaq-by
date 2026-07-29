@@ -53,7 +53,7 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         # medium stairs. v19's reward-only velocity penalty reduced speed but
         # drove the policy into torque/position saturation. Reduce the physical
         # target range instead, keeping the proven v18 rewards unchanged.
-        action_scale = 0.22
+        action_scale = 0.21
         decimation   = 4
 
     class asset( LeggedRobotCfg.asset ):
