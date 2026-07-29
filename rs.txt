@@ -755,6 +755,77 @@ LR 死锁根本原因：
   训练命令：
     python legged_gym/legged_gym/scripts/train.py --task=boying --headless
 
+### v19 — dof_vel_limits=-0.1（Jul29_10-00-22_ + Jul29_13-26-53_v19_resume7800，停止于约 20.8k）✗ 安全门失败
+  单变量变更（相对 v18）：
+    dof_vel_limits = -0.1
+
+  运行事件：
+    原始训练因 WSL 自动回收在 model_7800.pt 中断；
+    框架中间 checkpoint 的 payload 错存 iter=0，已修复保存/恢复元数据，
+    从 model_7800 精确恢复，并修正全局轮次到 30000 的剩余计数。
+    环境 curriculum state 不在 checkpoint 中保存，恢复后 terrain 曾短暂冷启动，
+    约 12k 时重新回到 4.0+，之后同步指标恢复可比。
+
+  TensorBoard @20k（v19 vs v18）：
+    terrain_level:       4.079 vs 4.139（-1.4%）
+    mean_reward:        21.933 vs 22.866（-4.1%）
+    tracking_lin_vel:    0.890 vs 0.891（-0.2%）
+    tracking_ang_vel:    0.394 vs 0.414（-4.9%）
+    dof_acc:             改善 6.5%
+    joint_power:         改善 10.7%
+    power_distribution:  改善 30.3%
+    smoothness:          改善 8.1%
+    action_rate:         恶化 5.1%
+    orientation:         恶化 19.5%
+    feet_air_time:       恶化 31.2%
+    noise_std:           0.427 vs 0.296（+44.3%）
+      15k→20k 从 0.340 升至 0.427，近期斜率 +0.032/1k，已出现发散风险
+    rew_dof_vel_limits:  近期约 -0.0044，未显示持续向零收敛
+
+  checkpoint 动力学 @20k（固定 vx=0.6m/s）：
+    平地：
+      tracking RMS=0.0287m/s（相对 v18/model_25000 的 0.0266，恶化 8.1%）
+      velocity max=1.009x（通过）
+      torque max=1.000x（打满，失败）
+      minimum position margin=-0.069rad，500 个 sample-joint 位置越限（失败）
+    中等楼梯 type6：
+      tracking RMS=0.0756m/s（v18/model_25000=0.0639）
+      velocity max=1.149x（v18=1.616x，速度风险确有降低但仍未达 <1.10）
+      torque max=1.000x（打满，失败）
+      minimum position margin=-0.079rad，617 个位置越限（失败）
+      stance slip p95=0.413m/s（v18=0.247，恶化 67%）
+
+  结论：
+    ✗ reward-only 速度限值惩罚诱导策略用更大的准静态关节偏置/扭矩换取低速度，
+      将“速度超限”转化为更危险的“扭矩饱和 + 位置越限 + 足端滑移”。
+    ✗ 未通过任何真机候选安全门，且 noise_std 开始上升。
+    → 20.8k 提前停止，回退该奖励项，不继续浪费训练算力。
+
+---
+
+## 当前配置（v20，从头训练）
+  [基线]
+  回到 v18 的全部 reward/PPO 设置，不保留 v19 的 dof_vel_limits。
+
+  [相对 v18 的唯一变更]
+  action_scale = 0.25 → 0.22（-12%）
+
+  依据：
+    v19 证明奖励层的速度约束会产生规避行为；v18/model_25000 在平地的扭矩、
+    位置和跟踪均安全，主要风险只在楼梯大动作幅度。
+    action_scale 直接缩小 PD 位置目标的物理范围，不依赖 policy 对惩罚权衡，
+    预期同时降低峰值关节速度、位置逼限和冲击风险。
+
+  v20 安全门：
+    1. 楼梯 type6 velocity max <1.10x；
+    2. 所有测试 position margin >0、torque max <1.0；
+    3. 平地 tracking RMS 相对 v18/model_25000 恶化不超过 10%；
+    4. terrain/reward 不得低于 v18 同步值 5% 以上；
+    5. 若 action_scale=0.22 限制跨台阶能力，则回退，不叠加第二变量。
+
+  训练命令：
+    python legged_gym/legged_gym/scripts/train.py --task=boying --headless
+
 ## 已废弃方向
   - orientation 加强（>-0.3）：v7 证明致命
   - power_distribution 加大：v6 实付惩罚已超 GO1
@@ -767,5 +838,6 @@ LR 死锁根本原因：
   - entropy_coef=0.001 从头训练：v15 证明 policy 过早收敛到平地策略，terrain 跌至 0
   - max_learning_rate 调整（5e-4/8e-4）：v13/v16 证明无法阻止 noise_std 发散（LR 被 KL 压低，非 max_lr 限制）
   - base_height=-1.0（GO1默认）：v14 证明 Boying 台阶地形下躯干偏差 2.8x 过大，改为 -0.5
+  - dof_vel_limits=-0.1：v19 证明会把速度风险转化为扭矩饱和、位置越限和滑移
 
 ================================================================================
