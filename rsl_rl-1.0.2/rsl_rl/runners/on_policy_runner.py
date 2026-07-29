@@ -146,7 +146,10 @@ class OnPolicyRunner:
             if self.log_dir is not None:
                 self.log(locals())
             if it % self.save_interval == 0:
-                self.save(os.path.join(self.log_dir, 'model_{}.pt'.format(it)))
+                self.save(
+                    os.path.join(self.log_dir, 'model_{}.pt'.format(it)),
+                    iteration=it,
+                )
             ep_infos.clear()
         
         self.current_learning_iteration += num_learning_iterations
@@ -224,11 +227,15 @@ class OnPolicyRunner:
                                locs['num_learning_iterations'] - locs['it']):.1f}s\n""")
         print(log_string)
 
-    def save(self, path, infos=None):
+    def save(self, path, infos=None, iteration=None):
         torch.save({
             'model_state_dict': self.alg.actor_critic.state_dict(),
             'optimizer_state_dict': self.alg.optimizer.state_dict(),
-            'iter': self.current_learning_iteration,
+            'iter': (
+                self.current_learning_iteration
+                if iteration is None
+                else iteration
+            ),
             'infos': infos,
             }, path)
 
@@ -237,7 +244,23 @@ class OnPolicyRunner:
         self.alg.actor_critic.load_state_dict(loaded_dict['model_state_dict'])
         if load_optimizer:
             self.alg.optimizer.load_state_dict(loaded_dict['optimizer_state_dict'])
-        self.current_learning_iteration = loaded_dict['iter']
+        checkpoint_iteration = loaded_dict['iter']
+        # Older checkpoints were named with the loop iteration while their
+        # payload incorrectly kept ``iter=0`` until the final save. Recover the
+        # authoritative iteration from model_<N>.pt so interrupted runs resume
+        # with correct logging, save names, and remaining-iteration accounting.
+        filename = os.path.basename(path)
+        if filename.startswith("model_") and filename.endswith(".pt"):
+            filename_iteration = filename[len("model_"):-len(".pt")]
+            if filename_iteration.isdigit():
+                filename_iteration = int(filename_iteration)
+                if filename_iteration != checkpoint_iteration:
+                    print(
+                        "Correcting checkpoint iteration metadata: "
+                        f"{checkpoint_iteration} -> {filename_iteration}"
+                    )
+                    checkpoint_iteration = filename_iteration
+        self.current_learning_iteration = checkpoint_iteration
         return loaded_dict['infos']
 
     def get_inference_policy(self, device=None):
