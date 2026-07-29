@@ -664,24 +664,96 @@ LR 死锁根本原因：
   [变更]
   feet_air_time_threshold = 0.3  # 0.5 → 0.3（v17 步态分析证实 0.5 全程无正向激励）
 
-## 下一步建议
-  P1【启动 v18：feet_air_time_threshold=0.5→0.3，从头训练】
-     v17 步态分析（Jul28）证实 threshold=0.5 是地形卡 4.1 的关键瓶颈
-     v10 已验证 threshold=0.3 方向正确（崩溃原因是 adaptive LR 爆炸，与 threshold 无关）
-     v17 的 entropy_coef=0.005 现在提供了稳定保障，v10 的崩溃条件已消除
-     训练命令：python legged_gym/scripts/train.py --task boying --headless
+### v18 — feet_air_time_threshold=0.3 从头训练（Jul28_22-17-43_, 30000 iters）✓ 步态/学习改善，model_25000 为候选
+  单变量变更（相对 v17）：
+    feet_air_time_threshold 0.5 → 0.3
+  其余奖励、PD 和 PPO 参数完全不变。
 
-  监控点（基于 v17 经验）：
-     step  200：noise_std 应在 0.55-0.75
-     step 8000：noise_std 拐点，应 < 0.65
-     step 15k+：feet_air_time 是否出现正值（这是 v18 的核心验证指标）
-     step 25k：noise_std 回升速率，应 < +0.03/1k
+  最终 TensorBoard 同步对比（step 29999，v18 vs v17）：
+    mean_reward:          23.344 vs 22.077（+5.7%）
+    terrain_level:         4.125 vs  4.114（+0.3%；末 10% 均值 4.170 vs 4.091）
+    tracking_lin_vel:      0.909 vs  0.898（+1.3%）
+    tracking_ang_vel:      0.423 vs  0.404（+4.8%）
+    mean_episode_length: 994.34  vs 984.44 （+1.0%）
+    noise_std:             0.293 vs  0.455（-35.6%，未发散）
+    value_loss:            0.00253 vs 0.00324（-22.1%）
+    autoenc_loss:          7.391 vs  7.495（-1.4%）
+    surrogate:            -0.00846，全程保持健康负值
 
-  P2【若 v18 noise_std 回升速率 > 0.03/1k：entropy_coef=0.003】
-     v17 末尾回升速率 +0.028/1k，刚好在安全边界；0.003 可进一步压制
+  最终 episode 奖励项：
+    feet_air_time:       -0.00378 vs -0.01003（改善 62.3%）✓ 核心目标达成
+    base_height:         -0.00044 vs -0.00181（改善 75.6%）
+    orientation:         -0.00503 vs -0.00742（改善 32.2%）
+    ang_vel_xy:          -0.03963 vs -0.04661（改善 15.0%）
+    tracking_lin_vel:     +1.3%；tracking_ang_vel: +4.8%
+    action_rate:          改善 3.3%；lin_vel_z: 改善 4.9%
+    dof_acc:              恶化 3.3%
+    joint_power:          恶化 9.6%
+    power_distribution:   恶化 28.4%
+    smoothness:           恶化 12.1%
 
-  P3【长期：desired_kl=0.02】
-     v17 末尾 LR 降至 6e-5，提高 desired_kl 可让 LR 自然维持更高水平
+  解释：
+    threshold=0.3 显著减少了负向腾空奖励，并加快早期地形学习；
+    但训练迭代均值仍未转正，说明 0.3s 对部分落足周期仍偏长。
+    v18 的最终 terrain 与 v17 接近，主要收益是更好的跟踪、姿态和探索稳定性，
+    而不是突破 terrain 4.1 平台。训练后期的能耗分布仍弱于 v17。
+
+  确定性动力学评估（gait_analysis.py，固定命令、无噪声/域随机化）：
+    平地命令覆盖：vx=0.3、0.6、1.0m/s，以及 vx=0.3m/s+yaw=0.5rad/s；
+    楼梯覆盖：curriculum type 6/type 14，中等难度，vx=0.6m/s。
+
+    v17/model_30000：
+      平地四场景均扭矩打满（max torque utilization=1.0）
+      关节位置越限 508~700 个 sample-joint，最小 margin=-0.077rad
+      高速峰值关节速度=1.43x URDF limit
+      → TensorBoard 奖励虽高，但不具备直接真机候选资格。
+
+    v18/model_20000：
+      姿态最稳，但平地平均绝对机械功率最高（vx=0.6: 373W）
+      → 不作为首选。
+
+    v18/model_25000（当前最佳折中）：
+      平地 vx=0.6：tracking RMS=0.0266m/s，平均绝对功率=319.8W，
+        torque max=0.344x，velocity max=1.007x，位置 margin=+0.353rad，
+        stance slip p95=0.156m/s，无 reset/位置越限
+      高速 vx=1.0：velocity max=1.004x，位置 margin=+0.221rad，无越限
+      楼梯 type6：tracking RMS=0.0639m/s，torque max=0.697x，
+        velocity max=1.616x，位置 margin=+0.022rad，无位置越限
+      楼梯 type14：velocity max=1.092x，位置 margin=+0.044rad，无位置越限
+      → 当前仿真部署候选，但楼梯关节速度仍明显超限。
+
+    v18/model_30000：
+      平地平均功率最低（vx=0.6: 277.2W），但横摆误差和高速滑移更大；
+      楼梯 type6 velocity max=1.853x，出现 2 个位置越限样本，margin=-0.040rad
+      → 不优先于 model_25000。
+
+  真机安全结论（当前）：
+    model_25000 只具备“受控真机验证候选”资格，不是可直接自由运行的权重。
+    首次验证必须使用吊架、低速命令（≤0.3m/s）、软件速度/位置/扭矩限幅、
+    硬件急停和短时分段测试；在平地通过前禁止上楼梯。
+    训练仍未覆盖执行器热模型、通信延迟、足端材料差异和真实电池压降。
+
+---
+
+## 当前配置（v19，从头训练）
+  [相对 v18 的唯一变更]
+  dof_vel_limits = -0.1
+
+  依据：
+    v18/model_25000 在中等楼梯出现 1.62x URDF 速度上限；
+    model_30000 达 1.85x 且出现位置越限。
+    _reward_dof_vel_limits 只惩罚超过 soft_dof_vel_limit=1.0 的部分，
+    因此不会直接压制限值以内的普通步态，是针对已测风险的最小单变量修改。
+
+  v19 验证门：
+    1. 训练指标不得出现 terrain/noise/surrogate 崩溃；
+    2. 同步 checkpoint 动力学测试中楼梯 velocity max 目标 <1.10x；
+    3. 平地跟踪 RMS 不得比 v18/model_25000 恶化超过 10%；
+    4. 不允许位置越限或扭矩打满；
+    5. 若安全门未改善，回退 v19，不叠加第二个变量。
+
+  训练命令：
+    python legged_gym/legged_gym/scripts/train.py --task=boying --headless
 
 ## 已废弃方向
   - orientation 加强（>-0.3）：v7 证明致命
