@@ -757,11 +757,19 @@ LR 死锁根本原因：
     不包含已回退的摆动足高度奖励，也不恢复 v19/v20/v21 参数。
 
   正式运行：
-    run: Jul30_23-00-22_v23_smoothness_0125
+    首段 run: Jul30_23-00-22_v23_smoothness_0125
     console: /tmp/dreamwaq_v23_train.log
+    用户要求切换到明确的默认训练环境后，首段于约 iteration 550 安全停止，
+    不恢复、不与后续 TensorBoard 曲线拼接。
+
+    当前 run: Jul30_23-17-32_v23_default_env
+    console: /tmp/dreamwaq_v23_default_env.log
     command: python -u legged_gym/legged_gym/scripts/train.py
-             --task=boying --headless --run_name v23_smoothness_0125
+             --task=boying --headless --run_name v23_default_env
     seed=5，目标 30000 iterations，从头训练。
+    未传 --num_envs 或 terrain 覆盖参数：使用默认 4096 并行环境、
+    trimesh curriculum、10 个难度等级行和 20 个地形类型列；
+    初始 terrain level 在 0~5 均匀随机，随后按机器人表现独立升降。
     启动门控已通过：GPU PhysX 正常，无 NaN/Inf 或配置漂移。
     监督 hook: dreamwaq-v23（每 30 分钟，里程碑/异常才通知）。
 
