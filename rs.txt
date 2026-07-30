@@ -778,6 +778,15 @@ LR 死锁根本原因：
     后续必须同时按 iteration 与 total timesteps 同步比较，避免错判收敛速度。
     该段于约 iteration 362 按用户要求安全停止，以便重启并修复 WSLg/Vulkan；
     最后完整 checkpoint 约为 model_350.pt。监督 hook 已暂停，不自动恢复。
+
+    系统修复后当前正式 run: Jul31_00-19-05_v23_env8192_post_repair
+    console: /tmp/dreamwaq_v23_env8192_post_repair.log
+    command: python -u legged_gym/legged_gym/scripts/train.py
+             --task=boying --headless --num_envs 8192
+             --run_name v23_env8192_post_repair
+    seed=5，目标 30000 iterations，从头训练，不恢复或拼接旧 v23 段。
+    启动门控通过：CUDA、GPU PhysX、8192 env 正常，无 NaN/Inf。
+    hook dreamwaq-v23 已重新启用并指向本段。
     启动门控已通过：GPU PhysX 正常，无 NaN/Inf 或配置漂移。
     监督 hook: dreamwaq-v23（每 30 分钟，里程碑/异常才通知）。
 
