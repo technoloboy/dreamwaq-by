@@ -85,7 +85,10 @@ class BoyingRoughCfg( LeggedRobotCfg ):
 
             # --- anti-oscillation: equal to GO1; raw oscillation still ~50% higher due to k=50 ---
             action_rate  = -0.01      # go1: -0.01 (was -0.015, relaxed Jul22)
-            smoothness   = -0.01      # go1: -0.01 (was -0.008, aligned Jul22)
+            # v23 single-variable experiment: mildly strengthen the second-
+            # difference action-target penalty to suppress stair velocity
+            # spikes without directly penalizing joint velocity (v19 failed).
+            smoothness   = -0.0125    # v18: -0.01
 
             # --- acceleration: heavier thigh (1.5kg vs 0.9kg) ---
             dof_acc      = -1.5e-7    # go1: -2.5e-7

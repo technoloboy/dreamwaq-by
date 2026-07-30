@@ -733,6 +733,48 @@ LR 死锁根本原因：
     硬件急停和短时分段测试；在平地通过前禁止上楼梯。
     训练仍未覆盖执行器热模型、通信延迟、足端材料差异和真实电池压降。
 
+### v23 — 小幅增强动作目标二阶平滑惩罚（待正式训练）
+  父版本：
+    v18（Jul28_22-17-43_，参考 checkpoint=model_25000.pt）。
+
+  已知问题：
+    v18 最终 smoothness 相对 v17 恶化 12.1%，dof_acc 恶化 3.3%；
+    model_25000 在 rough type6 的 peak velocity utilization=1.616，
+    但位置和扭矩仍有余量。v19 直接加入 dof_vel_limits=-0.1 后出现
+    扭矩打满、位置越限和滑移，说明直接压关节速度会诱发补偿性高扭矩。
+
+  假设：
+    楼梯峰值速度的一部分来自策略动作目标的高频二阶突变，而不是平均步速过高。
+    小幅增强 joint position target 的二阶差分惩罚，应降低动作 jerk、dof_acc
+    和关节速度峰值，同时比 dof_vel_limits 更少诱发持续扭矩对抗。
+
+  唯一变更（相对 v18）：
+    rewards.scales.smoothness: -0.01 → -0.0125（增强 25%）
+
+  保持不变：
+    action_scale=0.25；Kp=40、Kd=1.5；feet_air_time_threshold=0.3；
+    terrain、初始位姿、其余奖励、PPO、观测和域随机化全部保持 v18。
+    不包含已回退的摆动足高度奖励，也不恢复 v19/v20/v21 参数。
+
+  可证伪预测：
+    同步 step 下 smoothness 和 dof_acc 原始量应改善，且中后期 checkpoint
+    的 rough type6 peak velocity utilization 应低于 v18/model_25000；
+    若仅提高奖励而未降低确定性 rollout 的速度峰值，则机制不成立。
+
+  门控：
+    200/500/1000：数值稳定、reward/episode/terrain 不持续崩溃；
+    3000/5000/8000/12000/15000/20000/25000/29999：
+      与原始 v18 做相同步数、相同窗口的全部 TensorBoard 对比。
+    中后期使用相同平地命令和 rough type6/type14 评估多个 checkpoint。
+
+  最终安全门：
+    rough type6 peak velocity utilization<1.10；
+    position margin>0、零位置越限、torque utilization<1.0；
+    平地 tracking RMS 相对 v18/model_25000 恶化≤10%；
+    同步 terrain/reward 不持续低于 v18 超过 5%；
+    同时检查功率、滑移、碰撞、reset 和动作/加速度峰值。
+    通过仿真门控也不等同真机安全，仍要求吊架、低速、软硬限幅和急停。
+
 ---
 
 ## 已废弃方向
