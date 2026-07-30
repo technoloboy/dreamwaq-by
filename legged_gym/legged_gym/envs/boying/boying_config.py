@@ -49,10 +49,6 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         stiffness = {'joint': 40.}   # [N*m/rad]
         damping   = {'joint': 1.5}   # [N*m*s/rad]
         
-        # v20: v18/model_25000 reached 1.62x the URDF velocity limit on
-        # medium stairs. v19's reward-only velocity penalty reduced speed but
-        # drove the policy into torque/position saturation. Reduce the physical
-        # target range instead, keeping the proven v18 rewards unchanged.
         action_scale = 0.25
         decimation   = 4
 
@@ -93,6 +89,7 @@ class BoyingRoughCfg( LeggedRobotCfg ):
 
             # --- acceleration: heavier thigh (1.5kg vs 0.9kg) ---
             dof_acc      = -1.5e-7    # go1: -2.5e-7
+
             # --- gait: longer legs (0.49m vs 0.43m) ---
             feet_air_time = 0.15      # go1: 0.1
 
