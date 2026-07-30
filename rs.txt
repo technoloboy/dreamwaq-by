@@ -776,6 +776,8 @@ LR 死锁根本原因：
     初始 terrain level 在 0~5 均匀随机，随后按机器人表现独立升降。
     注意：每个 iteration 的环境采样量为 4096-env v18 基线的 2 倍；
     后续必须同时按 iteration 与 total timesteps 同步比较，避免错判收敛速度。
+    该段于约 iteration 362 按用户要求安全停止，以便重启并修复 WSLg/Vulkan；
+    最后完整 checkpoint 约为 model_350.pt。监督 hook 已暂停，不自动恢复。
     启动门控已通过：GPU PhysX 正常，无 NaN/Inf 或配置漂移。
     监督 hook: dreamwaq-v23（每 30 分钟，里程碑/异常才通知）。
 
