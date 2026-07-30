@@ -894,6 +894,17 @@ LR 死锁根本原因：
   训练命令：
     python legged_gym/legged_gym/scripts/train.py --task=boying --headless --run_name v21_action_scale_021
 
+### v21 — action_scale=0.21（用户要求停止于约 13.1k）— 不再沿 action_scale 调整
+  本实验并非因数值异常停止；用户明确要求后续不要修改 action_scale。
+  已终止训练并将 action_scale 恢复为 v18 基线值 0.25。
+  后续实验不得再通过 action_scale 调节运动幅度；应从奖励塑形、课程设计、
+  PPO 稳定性或可明确审计的运行时安全限幅中选择单变量方案。
+
+---
+
+## 后续配置约束
+  action_scale = 0.25（固定，不再作为调参变量）
+
 ## 已废弃方向
   - orientation 加强（>-0.3）：v7 证明致命
   - power_distribution 加大：v6 实付惩罚已超 GO1
@@ -907,5 +918,6 @@ LR 死锁根本原因：
   - max_learning_rate 调整（5e-4/8e-4）：v13/v16 证明无法阻止 noise_std 发散（LR 被 KL 压低，非 max_lr 限制）
   - base_height=-1.0（GO1默认）：v14 证明 Boying 台阶地形下躯干偏差 2.8x 过大，改为 -0.5
   - dof_vel_limits=-0.1：v19 证明会把速度风险转化为扭矩饱和、位置越限和滑移
+  - action_scale 扫描（0.22/0.21）：用户要求停止该方向；后续固定为 0.25
 
 ================================================================================
