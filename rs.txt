@@ -787,6 +787,37 @@ LR 死锁根本原因：
     seed=5，目标 30000 iterations，从头训练，不恢复或拼接旧 v23 段。
     启动门控通过：CUDA、GPU PhysX、8192 env 正常，无 NaN/Inf。
     hook dreamwaq-v23 已重新启用并指向本段。
+
+  v23 post-repair 200/500 门控（8192 env，早期继续观察）：
+    按 optimizer iteration 同步，step 500 的 v23 vs v18：
+      mean_reward:          9.593 vs 9.579（+0.15%）
+      episode_length:     875.12  vs 970.95（-9.87%）
+      terrain_level:        0.238 vs 0.254（-6.07%）
+      tracking_lin_vel:     0.344 vs 0.326（+5.50%）
+      tracking_ang_vel:     0.313 vs 0.316（-0.98%）
+      dof_acc:             -0.0268 vs -0.0307（改善 12.79%）
+      action_rate:         -0.0486 vs -0.0542（改善 10.25%）
+      joint_power:         -0.000793 vs -0.000971（改善 18.26%）
+      power_distribution:  -0.000453 vs -0.000626（改善 27.56%）
+      noise_std:            0.422 vs 0.448（-5.79%，未发散）
+      learning_rate:        4.68e-5 vs 1.05e-4
+      surrogate:           +0.000552 vs -0.001160
+
+    smoothness 加权项为 -0.007534 vs -0.006928；考虑 v23 权重增强 25%，
+    反推未加权二阶差分约改善 13%，方向与假设一致。
+
+    按 total timesteps 对齐（v23 step 500≈v18 step 1000）：
+      reward -25.3%、terrain -76.6%、linear tracking -41.0%，
+      但 dof_acc/action_rate/joint_power/power_distribution 分别改善
+      37.5%/26.7%/40.6%/67.8%。说明 8192 env 在单位样本学习效率上明显更慢，
+      同时确实降低了动作动态量。
+
+    门控结论：
+      不停止。reward 仍持续上升、无 NaN/PhysX/GPU 异常，且 step 713
+      surrogate 已回到轻微负值；但 terrain/episode 与样本效率落后，
+      step 450 后 surrogate 约 77% 为小幅正值，是 1000 门控的重点风险。
+      若 1000 门控仍持续 surrogate 转正、terrain 不恢复或 LR 继续下锁，
+      则应判定大 batch 优化效率不足并考虑停止，而不能只看平滑项改善。
     启动门控已通过：GPU PhysX 正常，无 NaN/Inf 或配置漂移。
     监督 hook: dreamwaq-v23（每 30 分钟，里程碑/异常才通知）。
 
