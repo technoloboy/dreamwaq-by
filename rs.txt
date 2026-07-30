@@ -733,7 +733,7 @@ LR 死锁根本原因：
     硬件急停和短时分段测试；在平地通过前禁止上楼梯。
     训练仍未覆盖执行器热模型、通信延迟、足端材料差异和真实电池压降。
 
-### v23 — 小幅增强动作目标二阶平滑惩罚（待正式训练）
+### v23 — 小幅增强动作目标二阶平滑惩罚（训练中）
   父版本：
     v18（Jul28_22-17-43_，参考 checkpoint=model_25000.pt）。
 
@@ -755,6 +755,15 @@ LR 死锁根本原因：
     action_scale=0.25；Kp=40、Kd=1.5；feet_air_time_threshold=0.3；
     terrain、初始位姿、其余奖励、PPO、观测和域随机化全部保持 v18。
     不包含已回退的摆动足高度奖励，也不恢复 v19/v20/v21 参数。
+
+  正式运行：
+    run: Jul30_23-00-22_v23_smoothness_0125
+    console: /tmp/dreamwaq_v23_train.log
+    command: python -u legged_gym/legged_gym/scripts/train.py
+             --task=boying --headless --run_name v23_smoothness_0125
+    seed=5，目标 30000 iterations，从头训练。
+    启动门控已通过：GPU PhysX 正常，无 NaN/Inf 或配置漂移。
+    监督 hook: dreamwaq-v23（每 30 分钟，里程碑/异常才通知）。
 
   可证伪预测：
     同步 step 下 smoothness 和 dof_acc 原始量应改善，且中后期 checkpoint
