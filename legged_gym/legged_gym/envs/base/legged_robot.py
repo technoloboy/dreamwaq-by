@@ -198,7 +198,6 @@ class LeggedRobot(BaseTask):
         self.last_actions[env_ids] = 0.
         self.last_dof_vel[env_ids] = 0.
         self.feet_air_time[env_ids] = 0.
-        self.feet_peak_clearance[env_ids] = 0.
         self.episode_length_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
         # fill extras
@@ -626,7 +625,6 @@ class LeggedRobot(BaseTask):
         self.commands = torch.zeros(self.num_envs, self.cfg.commands.num_commands, dtype=torch.float, device=self.device, requires_grad=False) # x vel, y vel, yaw vel, heading
         self.commands_scale = torch.tensor([self.obs_scales.lin_vel, self.obs_scales.lin_vel, self.obs_scales.ang_vel], device=self.device, requires_grad=False,) # TODO change this
         self.feet_air_time = torch.zeros(self.num_envs, self.feet_indices.shape[0], dtype=torch.float, device=self.device, requires_grad=False)
-        self.feet_peak_clearance = torch.zeros_like(self.feet_air_time)
         self.last_contacts = torch.zeros(self.num_envs, len(self.feet_indices), dtype=torch.bool, device=self.device, requires_grad=False)
         self.base_lin_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 7:10])
         self.base_ang_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 10:13])
@@ -945,31 +943,6 @@ class LeggedRobot(BaseTask):
 
         return heights.view(self.num_envs, -1) * self.terrain.cfg.vertical_scale
 
-    def _get_foot_ground_heights(self):
-        """Return a conservative local terrain height below each foot."""
-        if self.cfg.terrain.mesh_type == "plane":
-            return torch.zeros_like(self.foot_positions[:, :, 2])
-        if self.cfg.terrain.mesh_type == "none":
-            raise NameError("Can't measure foot clearance without terrain")
-
-        points = self.foot_positions[:, :, :2] + self.terrain.cfg.border_size
-        points = (points / self.terrain.cfg.horizontal_scale).long()
-        px = torch.clip(points[:, :, 0], 0, self.height_samples.shape[0] - 2)
-        py = torch.clip(points[:, :, 1], 0, self.height_samples.shape[1] - 2)
-
-        heights = torch.stack(
-            (
-                self.height_samples[px, py],
-                self.height_samples[px + 1, py],
-                self.height_samples[px, py + 1],
-                self.height_samples[px + 1, py + 1],
-            ),
-            dim=-1,
-        )
-        # The maximum is intentionally conservative at stair edges: clearance
-        # is measured from the obstacle the foot must clear, not the lower cell.
-        return torch.max(heights, dim=-1).values * self.terrain.cfg.vertical_scale
-
     #------------ reward functions----------------
     def _reward_lin_vel_z(self):
         # Penalize z axis base linear velocity
@@ -1059,33 +1032,6 @@ class LeggedRobot(BaseTask):
         rew_airTime *= torch.norm(self.commands[:, :2], dim=1) > 0.1 #no reward for zero command
         self.feet_air_time *= ~contact_filt
         return rew_airTime
-
-    def _reward_feet_clearance_target(self):
-        """Reward a bounded target peak clearance once per completed swing."""
-        contact = self.contact_forces[:, self.feet_indices, 2] > 1.0
-        contact_filt = torch.logical_or(contact, self.last_contacts)
-        ground_height = self._get_foot_ground_heights()
-        clearance = torch.clamp(
-            self.foot_positions[:, :, 2] - ground_height,
-            min=0.0,
-        )
-
-        swing = ~contact_filt
-        self.feet_peak_clearance = torch.where(
-            swing,
-            torch.maximum(self.feet_peak_clearance, clearance),
-            self.feet_peak_clearance,
-        )
-        first_contact = contact_filt & (self.feet_peak_clearance > 0.0)
-
-        error = (
-            self.feet_peak_clearance - self.cfg.rewards.feet_clearance_target
-        ) / self.cfg.rewards.feet_clearance_sigma
-        reward = torch.sum(torch.exp(-torch.square(error)) * first_contact, dim=1)
-        reward *= torch.norm(self.commands[:, :2], dim=1) > 0.1
-
-        self.feet_peak_clearance *= ~contact_filt
-        return reward
     
     def _reward_stumble(self):
         # Penalize feet hitting vertical surfaces

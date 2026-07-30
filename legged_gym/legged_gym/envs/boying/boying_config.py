@@ -69,11 +69,6 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         # attainable swing phases positively reinforced while preserving the
         # proven v17 reward scales and PPO settings.
         feet_air_time_threshold = 0.3
-        # Next single-variable experiment: reward a 10 cm swing peak relative
-        # to local terrain at touchdown. The bounded kernel avoids incentivizing
-        # arbitrarily high or long swing trajectories.
-        feet_clearance_target = 0.10
-        feet_clearance_sigma = 0.03
 
         class scales( LeggedRobotCfg.rewards.scales ):
             # --- stability: boying has higher CoM; orientation still ~50% worse than GO1 at equal steps ---
@@ -97,7 +92,6 @@ class BoyingRoughCfg( LeggedRobotCfg ):
 
             # --- gait: longer legs (0.49m vs 0.43m) ---
             feet_air_time = 0.15      # go1: 0.1
-            feet_clearance_target = 0.05
 
         # [GO1 baseline weights for reference]
         # class scales( LeggedRobotCfg.rewards.scales ):
