@@ -821,6 +821,49 @@ LR 死锁根本原因：
     启动门控已通过：GPU PhysX 正常，无 NaN/Inf 或配置漂移。
     监督 hook: dreamwaq-v23（每 30 分钟，里程碑/异常才通知）。
 
+  v23 post-repair 1000/3000/5000/8000/12000/15000 门控：
+    数据文件：analysis/v23_post_repair_gate_15000_iter.json。
+    当前检查时训练已到 step 18787，进程持续存活；控制台未发现
+    NaN/Inf、CUDA/PhysX、显存或 traceback 异常。
+
+    step 15000，500-step 窗口，按 optimizer iteration 同步（v23 vs v18）：
+      mean_reward:          22.858 vs 22.481（+1.68%）
+      episode_length:       989.69 vs 988.49（+0.12%）
+      terrain_level:         4.209 vs 4.179（+0.71%）
+      tracking_lin_vel:      0.8966 vs 0.8912（+0.60%）
+      tracking_ang_vel:      0.4163 vs 0.4102（+1.48%）
+      dof_acc:              -0.04384 vs -0.04440（改善 1.25%）
+      action_rate:          -0.04165 vs -0.04497（改善 7.40%）
+      joint_power:          -0.001869 vs -0.001891（改善 1.18%）
+      power_distribution:   -0.001693 vs -0.001700（改善 0.39%）
+      noise_std:             0.2899 vs 0.3015（-3.86%，未发散）
+      surrogate:            -0.00401 vs -0.00707（保持为负）
+      value_loss:            0.00318 vs 0.00332（-4.13%）
+      autoenc_loss:          7.354 vs 7.396（-0.57%）
+      learning_rate:         2.59e-4 vs 1.87e-4（自适应，未死锁）
+
+    按 total timesteps 对齐（v23 step 15000≈v18 step 29999）：
+      reward -1.70%、episode length -0.17%、terrain +0.93%；
+      linear/angular tracking 分别 -0.88%/-1.42%，均在 5% 门内；
+      action_rate 改善 0.64%，但 dof_acc、joint_power、
+      power_distribution 分别恶化 3.87%、0.77%、2.58%。
+      smoothness 加权项为 -0.006126 vs -0.005173；考虑 v23 惩罚权重
+      为 v18 的 1.25 倍，反推未加权二阶差分约为 -0.004901，
+      相对 v18 约改善 5.3%，说明目标机制仍成立但收益已明显收窄。
+
+    最新 step 17788-18787 健康窗口：
+      reward=23.183、episode_length=990.38、terrain=4.123；
+      noise_std=0.2894；surrogate=-0.00429，正值占比仅 0.3%；
+      LR 均值 2.80e-4（范围 1e-5~8e-4），无持续正 surrogate、
+      noise 发散、LR 死锁或 curriculum/reward 崩溃。
+
+    门控结论：
+      继续训练至 20000 门控。v23 已消除 500-step 时的大 batch
+      早期学习效率落后，任务/课程指标与 v18 基本等价且动作目标
+      二阶平滑原始量改善；但确定性 rollout 尚未验证，不能据此判定
+      keep 或真机安全。20000 后应暂停训练，在相同平地与 rough
+      type6/type14 场景对 v23/model_20000 和 v18/model_25000 做动力学门控。
+
   可证伪预测：
     同步 step 下 smoothness 和 dof_acc 原始量应改善，且中后期 checkpoint
     的 rough type6 peak velocity utilization 应低于 v18/model_25000；
