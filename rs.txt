@@ -864,6 +864,61 @@ LR 死锁根本原因：
       keep 或真机安全。20000 后应暂停训练，在相同平地与 rough
       type6/type14 场景对 v23/model_20000 和 v18/model_25000 做动力学门控。
 
+  v23 post-repair 20000 TensorBoard + 确定性动力学门控：
+    TensorBoard 数据：analysis/v23_post_repair_gate_20000_iter.json。
+    Rollout 数据：analysis/gait_v23_20000_gate/（固定 cmd=0.6,0,0，
+    warmup=150、record=700、无噪声/域随机化，GPU PhysX 串行运行）。
+    评估期间安全暂停训练，完成后已恢复；没有并行 GPU PhysX。
+
+    step 20000，500-step 窗口，按 optimizer iteration 同步（v23 vs v18）：
+      mean_reward:          23.496 vs 22.823（+2.95%）
+      episode_length:       992.85 vs 989.93（+0.29%）
+      terrain_level:         4.203 vs 4.179（+0.57%）
+      tracking_lin_vel:      0.9093 vs 0.8967（+1.41%）
+      tracking_ang_vel:      0.4272 vs 0.4165（+2.58%）
+      dof_acc:              -0.04180 vs -0.04380（改善 4.58%）
+      action_rate:          -0.04010 vs -0.04369（改善 8.21%）
+      joint_power:          -0.001827 vs -0.001903（改善 4.03%）
+      power_distribution:   -0.001580 vs -0.001738（改善 9.05%）
+      noise_std:             0.2795 vs 0.2988（-6.45%，未发散）
+      surrogate:            -0.00423 vs -0.00696（保持为负）
+      value_loss:            0.00288 vs 0.00316（-8.92%）
+      autoenc_loss:          7.421 vs 7.397（+0.32%）
+      learning_rate:         2.16e-4 vs 1.68e-4（未死锁）
+    smoothness 加权项 -0.005933 vs -0.005379；扣除 1.25 倍权重后，
+    v23 未加权二阶差分约 -0.004746，相对同步 v18 改善约 11.8%。
+    v23 step20000 对应的样本量需要 v18 step40000，但基线仅到 29999，
+    因而不存在严格的 total-timesteps 同步点；不能伪造样本对齐结论。
+
+    确定性 rollout（v23/model_20000 vs v18/model_25000）：
+      plane：
+        tracking RMS 0.03412 vs 0.02659（v23 恶化 28.3%，超过 10% 门）；
+        velocity max 1.009 vs 1.007，torque max 0.362 vs 0.344；
+        position margin 0.319 vs 0.353，均零越限/零 reset；
+        action-rate RMS 10.85 vs 11.65、dof-acc RMS 91.72 vs 97.21、
+        mean total power 294.6 vs 319.8，动态量/功率改善；
+        但 vertical-velocity RMS 0.0316 vs 0.0211、stance-slip RMS
+        0.1725 vs 0.1318，平地垂向运动和滑移明显恶化。
+      rough type6 level5：
+        tracking RMS 0.06227 vs 0.07879（改善 21.0%）；
+        velocity max 1.279 vs 1.006（v23 未通过 <1.10 门）；
+        position margin -0.0681、8 次越限 vs -0.0375、2 次越限；
+        torque max 0.467 vs 0.493，均零 reset。
+      rough type14 level5：
+        tracking RMS 0.05393 vs 0.10097（改善 46.6%）；
+        velocity max 1.249 vs 1.509（明显改善但仍未通过 <1.10 门）；
+        position margin -0.0334、3 次越限 vs -0.0996、22 次越限；
+        torque max 0.456 vs 0.753，均零 reset。
+
+    门控分类：inconclusive / 暂不 keep。
+      TensorBoard 和 rough type14 支持更强 smoothness 可降低部分动态量，
+      但主要假设尚未稳定成立：type6 速度峰值反而升高，且位置越限增多；
+      平地 tracking、垂向速度和滑移也违反既定质量门。由于这只是首个
+      中后期 checkpoint，按协议不因单次 rollout 停止；训练继续到
+      model_25000，随后在同一三场景复测。若 25000 仍重复 type6
+      velocity/position 与 plane tracking/slip 失败，则 v23 应 reject，
+      不应继续消耗到 30000 或进入真机候选。
+
   可证伪预测：
     同步 step 下 smoothness 和 dof_acc 原始量应改善，且中后期 checkpoint
     的 rough type6 peak velocity utilization 应低于 v18/model_25000；
