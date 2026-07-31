@@ -919,6 +919,47 @@ LR 死锁根本原因：
       velocity/position 与 plane tracking/slip 失败，则 v23 应 reject，
       不应继续消耗到 30000 或进入真机候选。
 
+  v23 post-repair 25000 最终门控（提前终止）：
+    TensorBoard 数据：analysis/v23_post_repair_gate_25000_iter.json。
+    Rollout 数据：analysis/gait_v23_25000_gate/（固定 cmd=0.6,0,0，
+    warmup=150、record=700、无噪声/域随机化，GPU PhysX 串行运行）。
+    评估期间暂停训练；门控失败后按 20000 时预注册的停止条件终止，
+    最后完整 checkpoint 为 model_25000.pt，未继续到 30000。
+
+    step 25000，按 optimizer iteration 同步（v23 vs v18）：
+      mean_reward +4.42%、episode_length +2.43%、terrain +0.38%；
+      tracking_lin_vel +2.72%、tracking_ang_vel +3.61%；
+      dof_acc、action_rate、joint_power、power_distribution 分别改善
+      4.27%、6.10%、2.55%、6.07%；noise_std=0.2846（未发散），
+      surrogate=-0.00536（保持为负），value_loss 改善 8.94%，
+      autoenc_loss 基本相当，LR=2.56e-4（未死锁）。
+      v23 step25000 对应 v18 step50000，但 v18 只到 29999，
+      因而没有严格 total-timesteps 同步点；以上只能解释为 iteration
+      同步结果，不能将 2 倍采样量忽略。
+
+    确定性 rollout（v23/model_25000 vs v18/model_25000）：
+      plane：
+        tracking RMS 0.03817 vs 0.02659（v23 恶化 43.6%，未通过≤10%门）；
+        velocity max 1.008、torque max 0.302、position margin 0.350，
+        零越限/零 reset；但 stance-slip RMS 0.2046 vs 0.1318（恶化55.2%）。
+      rough type6 level5：
+        tracking RMS 0.07608 vs 0.06001（恶化26.8%）；
+        velocity max 1.821 vs 1.440（两者均失败，v23 更差且远高于1.10）；
+        position margin 0.0100，虽零越限但只剩很小余量；
+        torque max 0.577，零 reset。
+      rough type14 level5：
+        tracking RMS 0.07019 vs 0.07031（基本相当）；
+        velocity max 1.320 vs 1.650（v23 改善但仍未通过1.10）；
+        position margin 0.0805、零越限，torque max 0.437、零 reset。
+
+    最终判定：reject v23，不是真机候选。
+      加强 smoothness 确实改善训练标量中的动作、加速度和功率惩罚，
+      但没有把奖励代理收益稳定转化为部署相关的动力学质量；25000
+      再次出现平地 tracking/slip 失败和 type6 速度峰值失败，且相对
+      20000 的 type6 velocity max 1.279 进一步恶化至 1.821。
+      因此该单变量假设被确定性 rollout 证伪，训练在约 25780 iteration
+      有意停止，不自动启动下一版本。保留 v18/model_25000 作为可信基线。
+
   可证伪预测：
     同步 step 下 smoothness 和 dof_acc 原始量应改善，且中后期 checkpoint
     的 rough type6 peak velocity utilization 应低于 v18/model_25000；
