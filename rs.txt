@@ -146,7 +146,7 @@
     持续，继续到30000无价值。约iteration1180停止，不恢复checkpoint。
     判定：reject（可学习但高阻尼失配）。
 
-## v26：保持fn=5 Hz，阻尼比从2降至0.6（短探针）
+## v26：保持fn=5 Hz，阻尼比从2降至0.6（正式训练中）
 
   父版本：v18配置；v25只作为失败诊断，不继承checkpoint。
   单一概念变量：惯量公式中的阻尼比 zeta 2.0 -> 0.6；保持
@@ -156,7 +156,20 @@
   假设：v25的主要失配来自过阻尼导致的跟踪迟滞及接触功率分配异常；
     将zeta降至0.6应恢复课程、线速度跟踪与功率分布，同时不回到v24
     的高刚度崩溃。先做512-env短探针，通过后才启动8192-env正式训练。
-  状态：配置已定义，待短探针门控。
+  短探针：Aug27_20-48-17_v26_fn5_zeta06_smoke，512 env、100轮。
+    GPU PhysX与数值启动健康，无NaN/Inf。step99 episode_length=996.34、
+    reward=-0.70、terrain=0.9215、linear/angular tracking=0.0824/0.1699；
+    joint_power=-0.0015、power_distribution=-0.0013。相比v25短探针
+    step49的episode=356.45、reward=-17.91、terrain=0.5066，早期可学习性
+    和功率分布明显改善，短探针通过。注意512-env曲线只用于筛选，不能
+    代替8192-env与v18的同步正式门控。
+  正式run：Aug27_20-52-12_v26_fn5_zeta06_env8192
+  console：/tmp/dreamwaq_v26_fn5_zeta06.log
+  command：python -u legged_gym/legged_gym/scripts/train.py --task=boying
+    --headless --num_envs=8192 --seed=5 --max_iterations=30000
+    --run_name=v26_fn5_zeta06_env8192
+  初始PID：27452。GPU PhysX启动正常，无NaN/Inf；从头训练。
+  状态：正式训练中，等待200轮门控。
 
 ---
 
