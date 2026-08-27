@@ -75,7 +75,42 @@
   初始 PID：7848。启动门通过：Physics Device=cuda:0、GPU Pipeline enabled，
     已进入训练循环，无 NaN/Inf、CUDA/PhysX traceback。
   监督 heartbeat：dreamwaq-v24-pd，每30分钟，里程碑/异常才通知。
-  状态：正式训练中。
+  v24 200门控（持续失败，提前终止）：
+    分析文件：analysis/v24_gate_200.json。检查时已到约350轮，terrain
+    从约step94起持续为0，并非单点波动。按optimizer iteration对齐：
+      mean_reward       -0.725 vs v18@200 5.104
+      episode_length      27.73 vs 979.09
+      terrain_level        0.00 vs 0.0568
+      tracking_lin_vel   0.00414 vs 0.16466
+      tracking_ang_vel   0.00318 vs 0.20658
+      surrogate        +0.00607 vs -0.00088
+      value_loss         0.01744 vs 0.00416
+      autoenc_loss         9.981 vs 5.077
+    按total timesteps对齐，v24@200应比较v18@400：v18 reward=7.985、
+    episode=976.12、terrain=0.0691、linear tracking=0.2808，结论更差。
+    虽然dof_acc/action_rate/smoothness数值较小，但这是机器人快速失败、
+    几乎不产生有效运动的退化结果；joint_power较v18@200恶化54%，
+    power_distribution恶化约7.64倍。GPU/PhysX无异常。
+    判定：reject。Kp=156.35/Kd=9.95统一用于全部关节时，策略无法形成
+    有效早期运动和课程学习。约iteration362按持续崩溃停止，不恢复。
+
+## v25：保持惯量公式/阻尼比，闭环频率10 Hz降至5 Hz（待训练）
+
+  父版本：v18配置；v24只作为失败诊断，不继承checkpoint。
+  单一概念变量：惯量公式中的目标自然频率 fn 10 Hz -> 5 Hz，保持
+    J=0.03960461065 kg·m²与忽略b时ζ≈2不变。因此：
+      Kp = 156.35 / 4 = 39.0875 N·m/rad
+      Kd = 9.95 / 2 = 4.975 N·m·s/rad
+  其他配置保持v18：action_scale=0.25、smoothness=-0.01、seed=5。
+  可证伪预测：相对v24，早期episode/reward/tracking不再持续崩溃，
+    terrain能够离开0；相对v18，较高Kd可能降低速度/冲击，但也可能
+    造成响应迟滞和跟踪恶化。
+  短探针：Aug27_19-39-*_v25_fn5_zeta2_smoke，512 env、50轮。
+    GPU PhysX与数值健康；step49 episode_length=356.45、linear tracking
+    =0.1300、angular tracking=0.0848，明显优于v24早期近零跟踪，说明
+    5 Hz方向恢复了部分可学习性。terrain仍降至0.5066且reward=-17.91，
+    早期尚不能判keep；进入8192-env正式run，在200门控与v18同步判断。
+  状态：短探针通过最低启动门，准备正式训练。
 
 ---
 

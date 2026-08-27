@@ -45,11 +45,12 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         # GO1:    J=0.03477 kg·m²  =>  k=28,  d=0.70
         # Boying: J=0.03187 kg·m²  =>  k=ωn²·J=25.7≈26,  d=2·ζ·ωn·J=0.64
         # Method B (k=26/d=0.64) failed: underdamped, terrain degraded after step 3200
-        # v24 single-variable experiment: gains derived from the Boying joint
-        # rotational-inertia calculation. All rewards/PPO settings use the
-        # trustworthy v18 baseline so the coupled Kp/Kd change is isolated.
-        stiffness = {'joint': 156.35}   # [N*m/rad]
-        damping   = {'joint': 9.95}     # [N*m*s/rad]
+        # v25: preserve the inertia-derived zeta~=2 family but reduce the
+        # assumed closed-loop natural frequency from 10 Hz to 5 Hz after v24
+        # caused a sustained early-learning collapse. With fixed J and zeta,
+        # Kp scales with fn^2 and Kd scales with fn.
+        stiffness = {'joint': 39.0875}   # [N*m/rad]
+        damping   = {'joint': 4.975}     # [N*m*s/rad]
         
         action_scale = 0.25
         decimation   = 4
