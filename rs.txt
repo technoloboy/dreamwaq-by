@@ -129,7 +129,34 @@
     无NaN/GPU异常。
     判定：继续到500确认，不因首个里程碑单点停止；500重点检查高Kd
     是否持续造成极端功率分布和加速度，若无恢复则判定进一步计算无价值。
-  状态：正式训练中，等待500轮门控。
+  v25 500/1000门控：analysis/v25_gate_500_1000.json。
+    500轮按optimizer iteration：reward 5.591 vs v18 9.769（-42.8%），
+    terrain 0.1307 vs 0.2505（-47.8%），linear/angular tracking
+    0.2582/0.2366 vs 0.3384/0.3046（-23.7%/-22.3%）。
+    1000轮按optimizer iteration：reward 7.132 vs 12.835（-44.4%），
+    terrain 0.3138 vs 1.0158（-69.1%），linear tracking 0.3227 vs
+    0.5840（-44.7%），angular tracking 0.2752 vs 0.3009（-8.5%）。
+    1000轮动力学：joint_power惩罚幅值约v18的6.64倍，
+    power_distribution约22.9倍；尽管dof_acc/action_rate较v18同轮次
+    更接近零，smoothness仍恶化31.5%，noise更高，value/autoencoder损失
+    也更高。按总样本量对齐，v25@1000应对比v18@2000：reward低54.9%、
+    terrain低88.3%、linear/angular tracking低57.2%/13.2%；joint_power
+    和power_distribution惩罚幅值仍约5.23倍/18.15倍。
+    v25已连续跨过200、500、1000三个门控，任务/课程与功率分布劣化
+    持续，继续到30000无价值。约iteration1180停止，不恢复checkpoint。
+    判定：reject（可学习但高阻尼失配）。
+
+## v26：保持fn=5 Hz，阻尼比从2降至0.6（短探针）
+
+  父版本：v18配置；v25只作为失败诊断，不继承checkpoint。
+  单一概念变量：惯量公式中的阻尼比 zeta 2.0 -> 0.6；保持
+    J=0.03960461065 kg·m²、fn=5 Hz、Kp=39.0875不变。忽略b时：
+      Kd = 4.975 * (0.6 / 2.0) = 1.4925 N·m·s/rad
+  其他配置保持v18：action_scale=0.25、smoothness=-0.01、seed=5。
+  假设：v25的主要失配来自过阻尼导致的跟踪迟滞及接触功率分配异常；
+    将zeta降至0.6应恢复课程、线速度跟踪与功率分布，同时不回到v24
+    的高刚度崩溃。先做512-env短探针，通过后才启动8192-env正式训练。
+  状态：配置已定义，待短探针门控。
 
 ---
 
