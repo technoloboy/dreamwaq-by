@@ -184,6 +184,26 @@
     power_distribution、dof_acc均更接近零。早期样本效率仍需观察，
     但任务学习与动力学方向均通过200门控。
   判定：继续到500轮同步门控，不因早期单点宣称keep。
+  v26 500/1000门控：analysis/v26_gate_500_1000.json。
+    按optimizer iteration：500轮reward 11.298 vs 9.579（+17.9%）、
+    terrain 0.2743 vs 0.2536（+8.2%）、linear/angular tracking
+    0.4130/0.3287 vs 0.3264/0.3157（+26.5%/+4.1%）；1000轮reward
+    13.366 vs 12.835（+4.1%）、terrain 1.5838 vs 1.0158（+55.9%）、
+    linear/angular tracking 0.6437/0.2818 vs 0.5840/0.3009
+    （+10.2%/-6.3%）。500轮joint_power、power_distribution、dof_acc、
+    action_rate、smoothness均不差于v18；1000轮joint_power和
+    power_distribution惩罚幅值恶化15.5%/29.0%，但dof_acc仅恶化1.4%，
+    action_rate和smoothness改善7.2%/17.1%。v25的数量级功率异常未复现。
+    按total timesteps对齐：v26@500 vs v18@1000，reward低12.0%、terrain
+    低73.0%、linear tracking低29.3%，angular tracking高9.3%；v26@1000
+    vs v18@2000，reward低15.5%、terrain低41.2%、linear/angular tracking
+    低14.5%/11.1%。样本效率仍落后，但差距随训练明显收窄。
+    优化器警告：step900~1080 surrogate均值+0.000384、96.7%为正，
+    v18同期为-0.001241且仅1.7%为正；LR自约step151锁在3.121e-5。
+    但同期v26 reward均值13.741、terrain均值1.543，均仍持续有效学习并
+    高于v18同轮次，因此尚不满足“LR死锁且无学习”的停止条件。
+  判定：继续到3000门控；若surrogate持续转正同时reward/terrain停止增长，
+    再按优化器失效规则处置。当前不是keep，更不是真机候选。
 
 ---
 
