@@ -241,6 +241,33 @@
     比例降至21.4%，LR升至2.3704e-4；无NaN/GPU/PhysX异常。
   判定：5000门控pass，继续到8000。当前可作为有前景的仿真候选方向，
     但必须等待checkpoint动力学评估，不能据此宣称真机可用。
+  v26 8000门控：analysis/v26_gate_8000.json；动力学目录
+    analysis/gait_v26_8000_gate。训练在安全SIGSTOP期间串行评估，完成后
+    已SIGCONT恢复，无并行GPU PhysX。
+    按optimizer iteration，v26 vs v18@8000：reward 21.767 vs 20.795
+    （+4.7%），episode 998.39 vs 985.02（+1.4%），terrain 4.0354 vs
+    4.0633（-0.7%），linear/angular tracking 0.8719/0.3968 vs
+    0.8564/0.3823（+1.8%/+3.8%）；joint_power、power_distribution、
+    dof_acc、action_rate、smoothness、lin_vel_z均改善约5.5%~11.9%。
+    step7800~8200窗口reward高3.3%、terrain低0.5%，surrogate均值
+    -0.002176且仅2.5%为正，optimizer健康。
+    按total timesteps对齐v18@16000：reward低3.0%、terrain低3.9%、
+    linear/angular tracking低2.5%/4.2%，已经进入5%同步门；joint_power、
+    power_distribution、dof_acc仍改善0.9%~3.2%，但action_rate和lin_vel_z
+    分别恶化9.0%/19.4%。
+    checkpoint8000安全评估未通过：plane tracking RMS=0.04599、velocity
+    max=1.005、torque max=0.425，但position margin=-0.244 rad且189次越限；
+    rough type6 tracking RMS=0.07558、velocity max=1.859、torque max=0.574、
+    margin=-0.244且185次越限；type14 RMS=0.10941、velocity max=2.060、
+    torque max=0.622、margin=-0.244且277次越限，三场景均0 reset。
+    为排除“8000轮策略尚未成熟”，同一v26运行时PD下补测v18/model_8000：
+    它同样不安全（plane/type6/type14分别53/427/282次位置越限；type6有
+    1次reset）。v26在rough跟踪、torque、reset和部分越限计数上优于同成熟度
+    v18，但plane位置裕度更差，rough峰值速度更高；因此当前证据不能归因于
+    v26独有崩溃，也绝不能判定安全。
+  判定：训练指标pass，但checkpoint8000仅为diagnostic-only且安全门失败；
+    继续到12000观察成熟度，并在更成熟checkpoint复测。未经安全门通过，
+    v26不得作为真机候选。
 
 ---
 
