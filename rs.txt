@@ -224,6 +224,23 @@
     1.0535e-4，因此不满足停止条件。
   判定：3000门控为borderline pass，继续到5000；若同步reward/terrain
     持续低于v18超过5%且optimizer再次锁死，再重新判定。
+  v26 5000门控：analysis/v26_gate_5000.json。
+    按optimizer iteration，v26 vs v18@5000：reward 19.551 vs 17.996
+    （+8.6%），episode 978.23 vs 964.20（+1.5%），terrain 3.7245 vs
+    3.6418（+2.3%），linear/angular tracking 0.8196/0.3651 vs
+    0.7956/0.3489（+3.0%/+4.6%）。step5000~5350窗口reward与terrain
+    也分别高3.3%/1.7%，已明确越过此前3000轮的临界差距。
+    同轮次动力学基本形成Pareto改进：joint_power持平，
+    power_distribution、dof_acc、action_rate、smoothness、orientation、
+    lin_vel_z分别改善约1.3%、2.2%、9.4%、17.8%、14.8%、1.9%。
+    按total timesteps对齐v18@10000：reward低9.6%、terrain低10.4%、
+    linear/angular tracking低6.3%/7.2%；joint_power改善4.2%，
+    power_distribution恶化3.4%，dof_acc近乎持平，smoothness持平，
+    但action_rate和lin_vel_z仍恶化19.3%/44.7%，是后续重点风险。
+    optimizer已明显恢复：step5000~5350 surrogate均值-0.000916，正值
+    比例降至21.4%，LR升至2.3704e-4；无NaN/GPU/PhysX异常。
+  判定：5000门控pass，继续到8000。当前可作为有前景的仿真候选方向，
+    但必须等待checkpoint动力学评估，不能据此宣称真机可用。
 
 ---
 
