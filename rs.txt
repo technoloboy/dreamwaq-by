@@ -35,6 +35,50 @@
 
 ---
 
+## v24：关节转动惯量推导的高增益 PD（待训练）
+
+  父版本：可信 v18（Jul28_22-17-43_ / model_25000.pt），从头训练。
+  单一概念变量：整组关节 PD 增益。
+    stiffness / Kp: 40.0 -> 156.35 N·m/rad
+    damping / Kd:    1.5 ->   9.95 N·m·s/rad
+  v18 常量：action_scale=0.25、smoothness=-0.01、feet_air_time_threshold=0.3、
+    entropy_coef=0.005、adaptive PPO、seed=5；不继承已 reject 的 v23
+    smoothness=-0.0125。
+
+  假设：按关节转动惯量推导的增益能够提高位置目标跟踪和接触后的阻尼，
+    但高 Kp/Kd 可能导致转矩饱和、冲击、功率/热负担、策略依赖刚性伺服，
+    或因所有关节共用同一增益而造成不同关节动态失配。
+
+  启动前门控：从头训练，不 resume；确认无重复 boying 训练进程；检查
+    startup NaN/Inf、CUDA/PhysX、转矩裁剪比例和初始 reset 冲击。
+  里程碑：200/500/1000/3000/5000/8000/12000/15000/20000/25000/29999。
+  对比基线：v18 同 optimizer iteration；若使用 8192 env，还必须按 total
+    timesteps 报告，不能与 4096-env v18 只按 iteration 宣称学习更快。
+  动力学门控：plane、rough type6/type14；检查 tracking、torque saturation、
+    position margin、joint velocity/acceleration、power、impact、slip、reset。
+  参数来源补充：ENCOS EC-A6408-P2-25 电机手册给出转子惯量
+    62.4 kg·mm²；内部旋转件折算到转子侧合计 63.36737704 kg·mm²，
+    减速比 N=25，折算到输出轴 J=39604.61065 kg·mm²
+    =0.03960461065 kg·m²。按 Kp=J(2πfn)^2 得 fn≈10 Hz；若忽略
+    粘性阻尼 b，Kd=2ζ(2πfn)J-b 对应 ζ≈2。该 J 未包含腿部连杆
+    关于各关节且随姿态变化的等效惯量，因此只作为待验证假设。
+
+  短探针：Aug27_19-03-26_v24_kp15635_kd995_smoke，512 env、10轮；
+    GPU PhysX/数值启动通过，无 NaN/Inf。由于训练极早期且仅10轮，
+    reward/terrain下降不作为保留或否决证据。
+
+  正式 run：Aug27_19-04-20_v24_kp15635_kd995_env8192
+  console：/tmp/dreamwaq_v24_kp15635_kd995.log
+  command：python -u legged_gym/legged_gym/scripts/train.py --task=boying
+    --headless --num_envs=8192 --seed=5 --max_iterations=30000
+    --run_name=v24_kp15635_kd995_env8192
+  初始 PID：7848。启动门通过：Physics Device=cuda:0、GPU Pipeline enabled，
+    已进入训练循环，无 NaN/Inf、CUDA/PhysX traceback。
+  监督 heartbeat：dreamwaq-v24-pd，每30分钟，里程碑/异常才通知。
+  状态：正式训练中。
+
+---
+
 ### v1 — 初始 Boying 配置（Jul21_14-32-27_, 15400 iters）
 变更（相对 GO1）：
   orientation        -0.2  → -0.3      (高重心补偿)

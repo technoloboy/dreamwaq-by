@@ -45,9 +45,11 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         # GO1:    J=0.03477 kg·m²  =>  k=28,  d=0.70
         # Boying: J=0.03187 kg·m²  =>  k=ωn²·J=25.7≈26,  d=2·ζ·ωn·J=0.64
         # Method B (k=26/d=0.64) failed: underdamped, terrain degraded after step 3200
-        # Method C: k=40/d=1.5 — compromise: lower k reduces power, higher d suppresses oscillation
-        stiffness = {'joint': 40.}   # [N*m/rad]
-        damping   = {'joint': 1.5}   # [N*m*s/rad]
+        # v24 single-variable experiment: gains derived from the Boying joint
+        # rotational-inertia calculation. All rewards/PPO settings use the
+        # trustworthy v18 baseline so the coupled Kp/Kd change is isolated.
+        stiffness = {'joint': 156.35}   # [N*m/rad]
+        damping   = {'joint': 9.95}     # [N*m*s/rad]
         
         action_scale = 0.25
         decimation   = 4
@@ -85,10 +87,7 @@ class BoyingRoughCfg( LeggedRobotCfg ):
 
             # --- anti-oscillation: equal to GO1; raw oscillation still ~50% higher due to k=50 ---
             action_rate  = -0.01      # go1: -0.01 (was -0.015, relaxed Jul22)
-            # v23 single-variable experiment: mildly strengthen the second-
-            # difference action-target penalty to suppress stair velocity
-            # spikes without directly penalizing joint velocity (v19 failed).
-            smoothness   = -0.0125    # v18: -0.01
+            smoothness   = -0.01      # v18 baseline; v23=-0.0125 was rejected
 
             # --- acceleration: heavier thigh (1.5kg vs 0.9kg) ---
             dof_acc      = -1.5e-7    # go1: -2.5e-7
