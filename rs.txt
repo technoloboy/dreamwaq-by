@@ -169,7 +169,21 @@
     --headless --num_envs=8192 --seed=5 --max_iterations=30000
     --run_name=v26_fn5_zeta06_env8192
   初始PID：27452。GPU PhysX启动正常，无NaN/Inf；从头训练。
-  状态：正式训练中，等待200轮门控。
+  v26 200门控：analysis/v26_gate_200.json。
+    按optimizer iteration，v26 vs v18@200：reward 6.160 vs 5.104
+    （+20.7%），episode 974.27 vs 979.09（-0.5%），terrain 0.0627
+    vs 0.0568（+10.5%）；linear/angular tracking 0.1884/0.2687 vs
+    0.1647/0.2066（+14.4%/+30.1%）。相较v25@200，reward、angular
+    tracking明显提高，且joint_power与power_distribution惩罚幅值分别
+    从0.007153/0.028332降至0.000729/0.000301，消除了v25最严重的
+    功率异常。相对v18同轮次，joint_power/power_distribution仍恶化
+    25.2%/29.2%，但dof_acc仅恶化3.6%，action_rate和smoothness反而
+    改善1.9%/4.6%；surrogate保持负值，autoencoder基本相同，无数值异常。
+    按total timesteps对齐v18@400，v26 reward低31.4%、linear/angular
+    tracking低45.2%/11.0%，但terrain仅低2.9%，且joint_power、
+    power_distribution、dof_acc均更接近零。早期样本效率仍需观察，
+    但任务学习与动力学方向均通过200门控。
+  判定：继续到500轮同步门控，不因早期单点宣称keep。
 
 ---
 
