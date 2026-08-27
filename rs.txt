@@ -204,6 +204,26 @@
     高于v18同轮次，因此尚不满足“LR死锁且无学习”的停止条件。
   判定：继续到3000门控；若surrogate持续转正同时reward/terrain停止增长，
     再按优化器失效规则处置。当前不是keep，更不是真机候选。
+  v26 3000门控：analysis/v26_gate_3000.json。
+    按optimizer iteration，v26 vs v18@3000：reward 15.642 vs 16.808
+    （-6.9%），episode 926.10 vs 945.43（-2.0%），terrain 3.1747 vs
+    3.3560（-5.4%），linear/angular tracking 0.7313/0.3198 vs
+    0.7639/0.3299（-4.3%/-3.0%）。step3000~3500窗口均值中reward
+    16.484 vs 16.547（-0.4%），terrain 3.2719 vs 3.4557（-5.3%），
+    说明单点差距含噪声且总体接近5%门控边界。
+    同轮次动力学：joint_power、dof_acc、action_rate、smoothness、
+    orientation均优于v18约2.2%~22.5%，power_distribution仅恶化1.6%，
+    lin_vel_z接近；v25的功率失配持续未复现。
+    按total timesteps对齐v18@6000：reward低15.5%、terrain低15.0%、
+    linear/angular tracking低7.2%/8.1%；joint_power仍改善4.5%，
+    power_distribution恶化3.7%，dof_acc恶化1.6%，但action_rate与
+    lin_vel_z分别恶化13.9%/23.6%，样本效率仍未追平。
+    optimizer仍需观察：step3000~3500 surrogate均值+0.000466、61.9%
+    为正（v18同期-0.002509），但较900~1080的96.7%持续转正已有恢复，
+    当前控制台正负交替，reward/terrain仍增长，LR也已从最低档回升至
+    1.0535e-4，因此不满足停止条件。
+  判定：3000门控为borderline pass，继续到5000；若同步reward/terrain
+    持续低于v18超过5%且optimizer再次锁死，再重新判定。
 
 ---
 
