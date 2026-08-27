@@ -116,7 +116,20 @@
     --headless --num_envs=8192 --seed=5 --max_iterations=30000
     --run_name=v25_fn5_zeta2_env8192
   初始PID：14917。GPU PhysX启动正常，无NaN/Inf；从头训练。
-  状态：正式训练中，200轮首次完整门控。
+  v25 200门控：analysis/v25_gate_200.json。
+    按optimizer iteration，v25 vs v18@200：reward 4.243 vs 5.104
+    （-16.9%），episode 960.85 vs 979.09（-1.9%），terrain 0.1598
+    vs 0.0568；linear tracking 0.2106 vs 0.1647，angular tracking
+    0.2103 vs 0.2066。任务学习已恢复，不是v24式崩溃。
+    但动力学代价显著恶化：joint_power 约12.3倍、power_distribution
+    约121.6倍、dof_acc约2.36倍，action_rate恶化63.1%，smoothness
+    恶化56.5%；lin_vel_z恶化83.7%。按total timesteps对齐v18@400，
+    v25 reward低36.3%、linear tracking低10.0%、angular tracking低25.5%，
+    功率/分布/加速度差距仍很大。noise=0.631，surrogate仍轻微负，
+    无NaN/GPU异常。
+    判定：继续到500确认，不因首个里程碑单点停止；500重点检查高Kd
+    是否持续造成极端功率分布和加速度，若无恢复则判定进一步计算无价值。
+  状态：正式训练中，等待500轮门控。
 
 ---
 
