@@ -269,6 +269,35 @@
     继续到12000观察成熟度，并在更成熟checkpoint复测。未经安全门通过，
     v26不得作为真机候选。
 
+  v26 12000门控：analysis/v26_gate_12000.json；动力学目录
+    analysis/gait_v26_12000_gate。训练在安全SIGSTOP期间串行评估，完成后
+    已SIGCONT恢复，无并行GPU PhysX。
+    按optimizer iteration，v26 vs v18@12000：reward 22.745 vs 21.540
+    （+5.6%），episode 988.54 vs 970.37（+1.9%），terrain 4.1712 vs
+    4.1891（-0.4%），linear/angular tracking 0.8965/0.4180 vs
+    0.8756/0.3997（+2.4%/+4.6%）。200步窗口同样稳定：reward +2.7%、
+    terrain -0.08%、linear/angular tracking +0.8%/+3.5%。joint_power、
+    power_distribution、dof_acc、action_rate、smoothness、orientation和
+    lin_vel_z在同轮次均相当或改善；noise_std=0.295、surrogate=-0.00204、
+    value_loss=0.00356、autoenc_loss=7.474、LR=1.139e-4，无发散或死锁。
+    按total timesteps对齐v18@24000：reward低2.9%、episode低1.1%、terrain
+    低1.2%、linear/angular tracking低1.9%/1.8%，全部处于5%同步门内；
+    joint_power与power_distribution仍改善2.6%/7.2%，但dof_acc、
+    action_rate、smoothness与lin_vel_z分别恶化1.6%、3.4%、3.7%、4.2%。
+    checkpoint12000动力学较8000显著成熟：plane已完全通过基础门，tracking
+    RMS=0.03344、velocity max=1.009、torque max=0.326、position margin
+    +0.160 rad、零越限/零reset。rough type6仍失败：tracking RMS=0.1463、
+    velocity max=1.115（略高于1.10）、torque max=0.592、position margin
+    -0.102 rad且11次越限；rough type14也失败：tracking RMS=0.07478、
+    velocity max=1.397、torque max=0.646、position margin=-0.0287 rad且
+    2次越限；两者均零reset。相较8000，位置越限从185/277降至11/2，
+    表明成熟度仍在改善，但rough安全门尚未通过。
+  判定：12000 TensorBoard门控pass，训练继续到15000；当前仍是
+    diagnostic-only，不是真机候选。由于rough越限数量大幅下降且未出现
+    torque饱和/崩溃，尚不足以否决v26；15000继续检查趋势，最迟在20000
+    再做同场景动力学复测。任何真机测试仍须吊架、低速、独立软硬限幅、
+    急停和短时平地分阶段验证。
+
 ---
 
 ### v1 — 初始 Boying 配置（Jul21_14-32-27_, 15400 iters）
