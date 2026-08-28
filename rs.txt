@@ -348,6 +348,41 @@
     最终复测；若届时仍重复plane tracking或type6速度失败，则reject v26，
     不凭空再调PD。当前仍非真机候选。
 
+  v26 25000最终门控（提前终止）：analysis/v26_gate_25000.json；动力学
+    目录analysis/gait_v26_25000_gate。评估时安全暂停训练并串行运行GPU
+    PhysX，完成后恢复；门控判定后按预注册停止规则终止，不继续消耗到30000。
+    按optimizer iteration，v26 vs v18@25000：reward 23.812 vs 22.833
+    （+4.3%），episode 995.49 vs 977.25（+1.9%），terrain 4.0810 vs
+    4.1652（-2.0%），linear/angular tracking 0.9053/0.4325 vs
+    0.8946/0.4172（+1.2%/+3.7%）。200步窗口reward +2.6%、terrain -1.7%、
+    linear/angular tracking +0.3%/+2.4%；任务指标仍在5%门内，且power、
+    dof_acc、action_rate、smoothness和lin_vel_z惩罚显著改善。
+    但约23600后optimizer进入持续异常区：step25000 surrogate=+0.000459，
+    末200步均值+0.000294；LR末200步均值1.31e-5，仅v18同步值的9.7%；
+    noise_std降至0.2609，autoenc_loss窗口升至7.947（v18为7.320），同时
+    采集耗时长期由约1.9s升至约5.4s。继续训练的边际价值明显下降。
+    v26@25000按样本量应对齐v18@50000，但基线不存在该点，因此没有严格
+    total-timesteps同步结论。
+
+    同成熟度rollout（v26/model_25000 vs v18/model_25000）：
+      plane：tracking RMS 0.02821 vs 0.02659（恶化6.1%，通过≤10%门），
+      velocity 1.007、torque 0.313、margin +0.187、零越限/零reset，全部通过。
+      rough type6：tracking RMS 0.05852 vs 0.06001（略改善），velocity
+      1.357 vs 1.440（改善但仍远高于1.10），torque 0.492；更关键的是
+      margin=-0.0761且5次越限，而v18同checkpoint为正margin、零越限。
+      rough type14：tracking RMS 0.06342、velocity 1.071、torque 0.462、
+      margin +0.0262、零越限/零reset，绝对门全部通过，并优于v18的速度
+      1.650与tracking RMS 0.07031。
+  最终判定：reject v26，不是真机候选。
+    低阻尼公式PD恢复了v24/v25丢失的可学习性，并在plane/type14得到可观
+    动力学改善，但核心type6在12000、20000、25000三个成熟门控持续失败，
+    25000还重新出现位置越限；叠加optimizer持续转正和LR死锁，继续到30000
+    已无足够价值。由于v26增益39.0875/1.4925与可信v18的40/1.5几乎相同，
+    现有证据无法识别一个可归因的下一步PD单变量；因此停止而不凭空启动
+    v27。若继续研究，应先做多seed/相同env数复现或按关节辨识负载侧等效
+    惯量，再形成可证伪PD假设。任何真机测试仍禁止，除非另行完成吊架、
+    低速、独立软硬限幅、急停及短时平地分阶段验证。
+
 ---
 
 ### v1 — 初始 Boying 配置（Jul21_14-32-27_, 15400 iters）
