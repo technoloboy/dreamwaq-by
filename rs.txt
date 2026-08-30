@@ -1410,6 +1410,16 @@ LR 死锁根本原因：
     episode=932.93、terrain=1.0158、linear/angular tracking=
     0.58399/0.30086，任务差距继续扩大。v27 episode虽从200轮的29.48
     升至62.90，但terrain仍持续为0，尚无课程学习证据。依用户决定继续。
+  v27正式run 1000门控：analysis/v27_full_gate_1000.json。训练继续。
+    v27出现明显的平地生存恢复：episode=979.27（v18=932.93）、reward
+    6.015（v18=12.835），linear/angular tracking=0.19699/0.25214
+    （v18=0.58399/0.30086）。但terrain仍为0，而v18为1.0158，说明
+    课程学习完全没有启动。joint_power与power_distribution惩罚幅值分别
+    为v18同轮次的2.45倍与4.56倍，orientation约4.07倍；surrogate仍为
+    正+0.00366，LR降至2.25e-5。按total timesteps对齐v18@2000，v18
+    reward=15.274、terrain=2.6928、linear/angular tracking=
+    0.75239/0.31558，差距更大。结论从“持续立即失败”更新为“恢复平地
+    生存但锁死在terrain=0的高功率策略”；按用户覆盖决定不停止。
 
 ---
 
