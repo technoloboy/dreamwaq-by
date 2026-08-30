@@ -1384,6 +1384,13 @@ LR 死锁根本原因：
   正式run、console和PID在启动成功后补记。监控里程碑仍为
   200/500/1000/3000/5000/8000/12000/15000/20000/25000/29999，
   但门控仅用于报告和最终证据，不用于主动停止。
+  正式run：Aug31_00-22-33_v27_fn5_critical_pd_env8192_full_recheck
+  console：/tmp/dreamwaq_v27_fn5_critical_pd_env8192_full_recheck.log
+  command：python -u legged_gym/legged_gym/scripts/train.py --task=boying
+    --headless --num_envs=8192 --seed=5 --max_iterations=30000
+    --run_name=v27_fn5_critical_pd_env8192_full_recheck
+  初始PID：584。启动门通过：Physics Device=cuda:0、GPU Pipeline enabled，
+    已进入训练循环，无启动期NaN/Inf或CUDA/PhysX错误。
 
 ---
 
