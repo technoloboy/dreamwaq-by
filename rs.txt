@@ -1420,6 +1420,16 @@ LR 死锁根本原因：
     reward=15.274、terrain=2.6928、linear/angular tracking=
     0.75239/0.31558，差距更大。结论从“持续立即失败”更新为“恢复平地
     生存但锁死在terrain=0的高功率策略”；按用户覆盖决定不停止。
+  v27正式run 3000门控：analysis/v27_full_gate_3000.json。训练继续。
+    按optimizer iteration，v27 vs v18@3000：reward 10.032 vs 16.808，
+    episode 994.58 vs 945.43，terrain 0 vs 3.356，linear/angular tracking
+    0.2171/0.3814 vs 0.7639/0.3299。角速度跟踪高15.6%，但线速度跟踪
+    低71.6%，课程仍完全锁死。joint_power、power_distribution惩罚幅值
+    分别为v18的1.74倍、3.41倍，orientation为1.39倍；surrogate已转回
+    轻微负值-0.000139，LR=1.0535e-4，noise_std=0.4312。按total
+    timesteps对齐v18@6000，v18 reward=18.780、terrain=3.7282、
+    linear/angular tracking=0.8131/0.3597。v27已形成稳定长episode，但属于
+    terrain=0、线速度跟踪差且功率昂贵的退化策略；依用户决定继续。
 
 ---
 
