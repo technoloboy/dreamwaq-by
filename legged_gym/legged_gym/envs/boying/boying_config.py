@@ -45,12 +45,14 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         # GO1:    J=0.03477 kg·m²  =>  k=28,  d=0.70
         # Boying: J=0.03187 kg·m²  =>  k=ωn²·J=25.7≈26,  d=2·ζ·ωn·J=0.64
         # Method B (k=26/d=0.64) failed: underdamped, terrain degraded after step 3200
-        # v26: keep v25's inertia-derived fn=5 Hz / Kp, but reduce the assumed
-        # damping ratio from zeta~=2 to zeta=0.6. v25 learned without the v24
-        # collapse, but its high damping sustained severe tracking/curriculum
-        # and power-distribution regressions through the 500/1000 gates.
-        stiffness = {'joint': 39.0875}   # [N*m/rad]
-        damping   = {'joint': 1.4925}    # [N*m*s/rad]
+        # v27: inertia-shaped joint-family PD at fn=5 Hz, critical damping
+        # (zeta=1.0).
+        # J_eff includes the URDF load inertia at the nominal pose plus the
+        # verified EC-A6408-P2-25 output-reflected rotating inertia (0.03960461
+        # kg*m^2): hip=0.0783534, thigh=0.0665917, calf=0.0440252 kg*m^2.
+        # Kp=J_eff*(2*pi*fn)^2, Kd=2*zeta*(2*pi*fn)*J_eff.
+        stiffness = {'hip': 77.3317, 'thigh': 65.7234, 'calf': 43.4511}  # [N*m/rad]
+        damping   = {'hip': 4.9231,  'thigh': 4.1841,  'calf': 2.7662}   # [N*m*s/rad]
         
         action_scale = 0.25
         decimation   = 4
