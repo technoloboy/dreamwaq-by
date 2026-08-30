@@ -1391,6 +1391,16 @@ LR 死锁根本原因：
     --run_name=v27_fn5_critical_pd_env8192_full_recheck
   初始PID：584。启动门通过：Physics Device=cuda:0、GPU Pipeline enabled，
     已进入训练循环，无启动期NaN/Inf或CUDA/PhysX错误。
+  v27正式run 200门控：analysis/v27_full_gate_200.json。训练继续，未中断。
+    按optimizer iteration，v27 vs v18@200：reward -0.3482 vs 5.1036，
+    episode 29.48 vs 979.09，terrain 0 vs 0.0568，linear/angular tracking
+    0.00510/0.00482 vs 0.16466/0.20658。power_distribution惩罚幅值约
+    v18的4.94倍；surrogate=+0.00281（v18=-0.00088），noise_std
+    0.5799 vs 0.4802。按total timesteps对齐v18@400，差距进一步扩大：
+    v18 reward=7.9846、episode=976.12、terrain=0.0691、linear/angular
+    tracking=0.28077/0.29945。action_rate、dof_acc、smoothness等惩罚较小
+    主要来自极短episode，不能视为控制质量改善。该结果重复512-env短探针
+    的任务崩溃，但依用户覆盖决定只记录、不停止，继续到30000轮。
 
 ---
 
