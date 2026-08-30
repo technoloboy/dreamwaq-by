@@ -1401,6 +1401,15 @@ LR 死锁根本原因：
     tracking=0.28077/0.29945。action_rate、dof_acc、smoothness等惩罚较小
     主要来自极短episode，不能视为控制质量改善。该结果重复512-env短探针
     的任务崩溃，但依用户覆盖决定只记录、不停止，继续到30000轮。
+  v27正式run 500门控：analysis/v27_full_gate_500.json。训练继续，未中断。
+    按optimizer iteration，v27 vs v18@500：reward -0.1198 vs 9.5788，
+    episode 62.90 vs 970.95，terrain 0 vs 0.2536，linear/angular tracking
+    0.00864/0.01040 vs 0.32635/0.31571。power_distribution惩罚幅值约
+    v18的2.14倍；surrogate仍为正+0.00171（v18=-0.00116），noise_std
+    0.3730。按total timesteps对齐v18@1000，v18 reward=12.8353、
+    episode=932.93、terrain=1.0158、linear/angular tracking=
+    0.58399/0.30086，任务差距继续扩大。v27 episode虽从200轮的29.48
+    升至62.90，但terrain仍持续为0，尚无课程学习证据。依用户决定继续。
 
 ---
 
