@@ -1430,6 +1430,16 @@ LR 死锁根本原因：
     timesteps对齐v18@6000，v18 reward=18.780、terrain=3.7282、
     linear/angular tracking=0.8131/0.3597。v27已形成稳定长episode，但属于
     terrain=0、线速度跟踪差且功率昂贵的退化策略；依用户决定继续。
+  v27正式run 5000门控：analysis/v27_full_gate_5000.json。训练继续。
+    按optimizer iteration，v27 vs v18@5000：reward 9.762 vs 17.996，
+    episode 970.12 vs 964.20，terrain 0.0144 vs 3.6418，linear/angular
+    tracking 0.2805/0.3719 vs 0.7956/0.3489。terrain首次出现极小非零值，
+    但仍只有v18的0.39%，不能视为课程恢复；线跟踪低64.7%，角跟踪高6.6%。
+    joint_power、power_distribution惩罚幅值分别为v18的2.11倍、4.20倍，
+    orientation为1.83倍；surrogate再次转正+0.000411，noise_std=0.4541。
+    按total timesteps对齐v18@10000，v18 reward=21.625、terrain=4.1586、
+    linear/angular tracking=0.8744/0.3936。结论仍是平地退化策略，课程仅有
+    痕量启动且高功率问题持续；依用户覆盖决定不停止。
 
 ---
 
