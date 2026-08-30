@@ -1331,7 +1331,7 @@ LR 死锁根本原因：
 
 ---
 
-## v27：URDF/传动惯量归一化的分组 PD（待训练）
+## v27：URDF/传动惯量归一化的分组 PD（已拒绝）
 
   父版本：可信 v18 配置；v24-v26 仅作为 PD 失配证据，不继承 checkpoint。
   单一概念变量：将统一关节 PD 替换为相同闭环目标下的关节族分组 PD。
@@ -1358,7 +1358,22 @@ LR 死锁根本原因：
 
   常量：action_scale=0.25、smoothness=-0.01、feet_air_time_threshold=0.3、
   seed=5、8192 env、从头训练；奖励、PPO、随机化和课程配置不变。
-  当前只完成配置，不启动训练；得到用户后续指令后才运行短探针。
+  短探针：Aug31_00-13-25_v27_fn5_critical_pd_smoke，512 env、200轮，
+  从头训练；分析文件 analysis/v27_smoke_gate.json。GPU PhysX启动正常，
+  无NaN/Inf或CUDA/PhysX错误，但任务学习持续崩溃。step199：
+    reward=-0.3765 vs v18@199 5.5678；
+    episode_length=25.48 vs 1000.55；
+    terrain=0 vs 0.0608；
+    tracking_lin/ang=0.00462/0.00425 vs 0.19279/0.20590。
+  探针尾部窗口terrain持续为0、episode约25，排除单点波动。action_rate、
+  dof_acc和joint_power惩罚较小是由于策略几乎立即失败，不能解释为动力学
+  改善；power_distribution惩罚反而约为v18同轮次1.98倍。虽然512-env与
+  4096-env v18不能作严格总样本量对齐，但该结果也显著差于同为512-env的
+  v26短探针（step99 episode=996.34、terrain=0.9215），足以否决启动门。
+
+  判定：reject。5 Hz临界阻尼的分组PD复现了高增益早期失效模式，不启动
+  8192-env正式训练，不恢复该探针checkpoint。下一版本必须单变量降低带宽
+  或阻尼，先经短探针验证；未经新指令不自动改参数或开启下一轮。
   该计算只生成仿真候选，不代表真机可用。
 
 ---
