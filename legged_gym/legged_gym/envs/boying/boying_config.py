@@ -76,16 +76,15 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         feet_air_time_threshold = 0.3
 
         class scales( LeggedRobotCfg.rewards.scales ):
-            # v28: v27 survives and eventually reaches terrain~3.3, but at 20k its
-            # linear tracking is 33.5% below v18 while angular tracking is 23.4%
-            # below. Reallocate tracking priority toward translation without
-            # weakening the existing dynamics/safety regularizers.
-            tracking_lin_vel = 1.25
-            tracking_ang_vel = 0.40
+            # v29: preserve the v18/v27 command-tracking weights (1.0/0.5) and
+            # coordinate a modest mobility-regularizer relaxation around the
+            # higher-damped v27 joint-family PD. Power and hard-limit terms stay
+            # unchanged so a higher reward cannot hide worse energy/safety.
 
             # --- stability: boying has higher CoM; orientation still ~50% worse than GO1 at equal steps ---
-            orientation  = -0.3       # go1: -0.2; -0.5 caused catastrophic collapse (Jul23 v7), -0.3 is upper limit for Boying
-            ang_vel_xy   = -0.05      # go1: -0.05
+            orientation  = -0.25      # v29: -0.3 -> -0.25; retain stronger-than-GO1 stability pressure
+            ang_vel_xy   = -0.04      # v29: -0.05 -> -0.04
+            lin_vel_z    = -1.5       # v29: inherited -2.0 -> -1.5
 
             # --- height: go1 default -1.0 is too strong for Boying; stairs require natural trunk height adjustment ---
             # v14 analysis: base_height deviation was 0.118m (vs v9/GO1: 0.042m) under -1.0, 2.8x worse
@@ -96,11 +95,11 @@ class BoyingRoughCfg( LeggedRobotCfg ):
             power_distribution = -5e-7   # go1: -10e-6 (kept loose: structural asymmetry from k=50)
 
             # --- anti-oscillation: equal to GO1; raw oscillation still ~50% higher due to k=50 ---
-            action_rate  = -0.01      # go1: -0.01 (was -0.015, relaxed Jul22)
-            smoothness   = -0.01      # v18 baseline; v23=-0.0125 was rejected
+            action_rate  = -0.0075    # v29: -0.01 -> -0.0075
+            smoothness   = -0.0075    # v29: -0.01 -> -0.0075; v23 strengthening was rejected
 
             # --- acceleration: heavier thigh (1.5kg vs 0.9kg) ---
-            dof_acc      = -1.5e-7    # go1: -2.5e-7
+            dof_acc      = -1.2e-7    # v29: -1.5e-7 -> -1.2e-7
 
             # --- gait: longer legs (0.49m vs 0.43m) ---
             feet_air_time = 0.15      # go1: 0.1

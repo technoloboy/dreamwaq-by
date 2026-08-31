@@ -1533,6 +1533,38 @@ LR 死锁根本原因：
   相同8192-env v27正式run按optimizer iteration对比，并辅以v18参考，避免
   把奖励权重变化造成的账面增益误判为行为改善。
 
+  v28终止：用户在约126轮要求保持tracking权重不变并改用其他奖励协调塑形，
+  已向PID 1043发送SIGINT并确认退出。终止前约step122：reward=-0.59、
+  episode=28.46、terrain=0、linear/angular tracking=0.0063/0.0035；尚未到
+  200门控，结果只用于记录，不作为完整否决证据。v28不得恢复或与v29拼接。
+
+## v29：保持tracking不变的移动正则协调释放（定义阶段）
+
+  父版本：v27分组PD。tracking_lin_vel=1.0、tracking_ang_vel=0.5保持v18/v27
+  原值；action_scale=0.25、功率/限位/碰撞奖励、PPO、随机化和课程不变。
+
+  机制假设：v27高阻尼分组PD下，orientation、lin_vel_z、ang_vel_xy、
+  action_rate、smoothness与dof_acc多个正则同时对策略运动施压，导致策略先学会
+  长episode生存，却用约20k轮才把terrain推到3.24，且线跟踪持续落后。
+  协调放松这些“移动正则”可释放跨地形动作空间；功率项保持不变，避免通过
+  隐藏高能耗获得虚假改进。
+
+  协调权重修改：
+    orientation：-0.30 -> -0.25（放松16.7%）
+    ang_vel_xy：-0.05 -> -0.04（放松20%）
+    lin_vel_z：-2.00 -> -1.50（放松25%）
+    action_rate：-0.010 -> -0.0075（放松25%）
+    smoothness：-0.010 -> -0.0075（放松25%）
+    dof_acc：-1.5e-7 -> -1.2e-7（放松20%）
+  保持不变：tracking、joint_power、power_distribution、feet_air_time、
+  base_height、关节/扭矩/速度限位与碰撞项。
+
+  可证伪预测：相对v27同步点，episode恢复速度、terrain和raw tracking应改善，
+  不能只看因惩罚变小导致的mean_reward上涨。orientation、lin_vel_z、
+  ang_vel_xy、action_rate、smoothness、dof_acc的raw行为代理若持续恶化超过10%，
+  或joint_power/power_distribution恶化超过10%，则reject；任何位置/扭矩/
+  速度安全门失败均不得作为部署候选。
+
 ---
 
 ## 已废弃方向
