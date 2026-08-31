@@ -208,6 +208,10 @@ class LeggedRobot(BaseTask):
         # log additional curriculum info
         if self.cfg.terrain.curriculum:
             self.extras["episode"]["terrain_level"] = torch.mean(self.terrain_levels.float())
+        if getattr(self.cfg.rewards, "mobility_regularizer_curriculum", False):
+            self.extras["episode"]["mobility_regularizer_progress"] = torch.mean(
+                self._mobility_regularizer_progress()
+            )
         if self.cfg.commands.curriculum:
             self.extras["episode"]["max_command_x"] = self.command_ranges["lin_vel_x"][1]
         # send timeout info to the algorithm
@@ -944,17 +948,39 @@ class LeggedRobot(BaseTask):
         return heights.view(self.num_envs, -1) * self.terrain.cfg.vertical_scale
 
     #------------ reward functions----------------
+    def _mobility_regularizer_progress(self):
+        """Curriculum progress used to restore mobility regularizers.
+
+        A failed environment is allowed the relaxed v29 regularization at the
+        lowest terrain level.  As it demonstrates terrain competence, the
+        regularizers are continuously restored to their full configured
+        (v27) strength.  Tasks that do not opt in retain exactly the historical
+        reward implementation.
+        """
+        if not getattr(self.cfg.rewards, "mobility_regularizer_curriculum", False):
+            return torch.ones(self.num_envs, device=self.device)
+        full_level = max(float(self.cfg.rewards.mobility_regularizer_full_level), 1.0)
+        return torch.clamp(self.terrain_levels.float() / full_level, 0.0, 1.0)
+
+    def _mobility_regularizer_factor(self, reward_name):
+        if not getattr(self.cfg.rewards, "mobility_regularizer_curriculum", False):
+            return 1.0
+        start_ratios = self.cfg.rewards.mobility_regularizer_start_ratios
+        start_ratio = float(start_ratios.get(reward_name, 1.0))
+        progress = self._mobility_regularizer_progress()
+        return start_ratio + (1.0 - start_ratio) * progress
+
     def _reward_lin_vel_z(self):
         # Penalize z axis base linear velocity
-        return torch.square(self.base_lin_vel[:, 2])
+        return torch.square(self.base_lin_vel[:, 2]) * self._mobility_regularizer_factor("lin_vel_z")
     
     def _reward_ang_vel_xy(self):
         # Penalize xy axes base angular velocity
-        return torch.sum(torch.square(self.base_ang_vel[:, :2]), dim=1)
+        return torch.sum(torch.square(self.base_ang_vel[:, :2]), dim=1) * self._mobility_regularizer_factor("ang_vel_xy")
     
     def _reward_orientation(self):
         # Penalize non flat base orientation
-        return torch.sum(torch.square(self.projected_gravity[:, :2]), dim=1)
+        return torch.sum(torch.square(self.projected_gravity[:, :2]), dim=1) * self._mobility_regularizer_factor("orientation")
 
     def _reward_base_height(self):
         # Penalize base height away from target
@@ -976,14 +1002,14 @@ class LeggedRobot(BaseTask):
     
     def _reward_dof_acc(self):
         # Penalize dof accelerations
-        return torch.sum(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=1)
+        return torch.sum(torch.square((self.last_dof_vel - self.dof_vel) / self.dt), dim=1) * self._mobility_regularizer_factor("dof_acc")
     
     def _reward_joint_power(self):
         return torch.sum((torch.abs(self.dof_vel)*torch.abs(self.torques)),dim=1)
     
     def _reward_action_rate(self):
         # Penalize changes in actions
-        return torch.sum(torch.square(self.last_actions - self.actions), dim=1)
+        return torch.sum(torch.square(self.last_actions - self.actions), dim=1) * self._mobility_regularizer_factor("action_rate")
     
     def _reward_collision(self):
         # Penalize collisions on selected bodies
@@ -1051,7 +1077,7 @@ class LeggedRobot(BaseTask):
         diff = torch.square(self.joint_pos_target[:, :self.num_dof] - 2 * self.last_joint_pos_target[:, :self.num_dof] + self.last_last_joint_pos_target[:, :self.num_dof])
         diff = diff * (self.last_actions[:, :self.num_dof] != 0)  # ignore first step
         diff = diff * (self.slast_actions[:, :self.num_dof] != 0)  # ignore second step
-        return torch.sum(diff, dim=1)
+        return torch.sum(diff, dim=1) * self._mobility_regularizer_factor("smoothness")
     
     def _reward_power_distribution(self):
         power = self.torques*self.dof_vel

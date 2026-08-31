@@ -1651,6 +1651,34 @@ LR 死锁根本原因：
   动态门失败方向一致，但因仅是单一随机rough场景，不替代plane/type6/type14
   的确定性定量评估。
 
+## v30：地形课程耦合的移动正则恢复（定义/探针阶段）
+
+  父版本：v27分组临界阻尼PD，tracking_lin_vel=1.0、
+  tracking_ang_vel=0.5、action_scale=0.25、PPO、随机化、课程、功率项和
+  硬安全项均保持不变。
+
+  证据与因果假设：v29在低难度阶段显著恢复了v27的生存、跟踪和terrain
+  学习，但在500/1000/3000多个门控持续通过更大的姿态/竖直运动、动作变化、
+  加速度和功率来换取进度；静态减小惩罚后raw行为近似反向放大。因此继续
+  静态调小或调大权重均不能同时满足“先学会走”和“后期安全”。
+
+  单一机制变量：按每个环境的terrain level连续恢复六项移动正则。
+    progress = clip(terrain_level / 3, 0, 1)
+    effective_factor = v29_ratio + (1-v29_ratio) * progress
+  level 0时有效惩罚与v29一致；level 1/2逐步增强；level >=3时恢复v27完整
+  强度。底层配置权重恢复为orientation=-0.3、ang_vel_xy=-0.05、
+  lin_vel_z=-2.0、action_rate=-0.01、smoothness=-0.01、dof_acc=-1.5e-7；
+  起始比例分别为5/6、0.8、0.75、0.75、0.75、0.8。新增
+  Episode/mobility_regularizer_progress用于审计实际启用程度。该实现由
+  Boying配置显式启用，其他任务默认行为不变。
+
+  可证伪预测与门控：@500/@1000低难度任务指标应保留v29同步值90%以上；
+  当mobility_regularizer_progress均值超过0.7后，六项raw动态代理以及未改权重
+  的joint_power/power_distribution相对v29应改善至少20%，并持续向v18收敛；
+  terrain和tracking不得因正则恢复持续回落。若课程重新锁死为v27模式，或
+  progress>0.7后动态/功率仍保持v29退化水平，则否决该机制。最终仍需通过
+  plane/type6/type14的速度、位置、扭矩、跟踪、功率、滑移、碰撞与reset门。
+
 ---
 
 ## 已废弃方向

@@ -75,16 +75,32 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         # proven v17 reward scales and PPO settings.
         feet_air_time_threshold = 0.3
 
+        # v30: curriculum-coupled restoration of the v27 safety regularizers.
+        # At terrain level 0 the effective strengths equal v29, preserving the
+        # exploration benefit diagnosed there.  They ramp linearly and reach
+        # the full v27 strength at level 3, preventing continued growth of raw
+        # motion, acceleration and power proxies as terrain competence rises.
+        mobility_regularizer_curriculum = True
+        mobility_regularizer_full_level = 3.0
+        mobility_regularizer_start_ratios = {
+            'orientation': 5.0 / 6.0,
+            'ang_vel_xy': 0.8,
+            'lin_vel_z': 0.75,
+            'action_rate': 0.75,
+            'smoothness': 0.75,
+            'dof_acc': 0.8,
+        }
+
         class scales( LeggedRobotCfg.rewards.scales ):
-            # v29: preserve the v18/v27 command-tracking weights (1.0/0.5) and
-            # coordinate a modest mobility-regularizer relaxation around the
-            # higher-damped v27 joint-family PD. Power and hard-limit terms stay
-            # unchanged so a higher reward cannot hide worse energy/safety.
+            # v30 base scales are restored to v27. The curriculum above applies
+            # the v29 ratios only at low terrain levels and removes that
+            # relaxation by level 3. Tracking, power and hard-limit terms remain
+            # unchanged.
 
             # --- stability: boying has higher CoM; orientation still ~50% worse than GO1 at equal steps ---
-            orientation  = -0.25      # v29: -0.3 -> -0.25; retain stronger-than-GO1 stability pressure
-            ang_vel_xy   = -0.04      # v29: -0.05 -> -0.04
-            lin_vel_z    = -1.5       # v29: inherited -2.0 -> -1.5
+            orientation  = -0.3
+            ang_vel_xy   = -0.05
+            lin_vel_z    = -2.0
 
             # --- height: go1 default -1.0 is too strong for Boying; stairs require natural trunk height adjustment ---
             # v14 analysis: base_height deviation was 0.118m (vs v9/GO1: 0.042m) under -1.0, 2.8x worse
@@ -95,11 +111,11 @@ class BoyingRoughCfg( LeggedRobotCfg ):
             power_distribution = -5e-7   # go1: -10e-6 (kept loose: structural asymmetry from k=50)
 
             # --- anti-oscillation: equal to GO1; raw oscillation still ~50% higher due to k=50 ---
-            action_rate  = -0.0075    # v29: -0.01 -> -0.0075
-            smoothness   = -0.0075    # v29: -0.01 -> -0.0075; v23 strengthening was rejected
+            action_rate  = -0.01
+            smoothness   = -0.01
 
             # --- acceleration: heavier thigh (1.5kg vs 0.9kg) ---
-            dof_acc      = -1.2e-7    # v29: -1.5e-7 -> -1.2e-7
+            dof_acc      = -1.5e-7
 
             # --- gait: longer legs (0.49m vs 0.43m) ---
             feet_air_time = 0.15      # go1: 0.1
