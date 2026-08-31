@@ -1465,6 +1465,20 @@ LR 死锁根本原因：
     linear/angular tracking=0.9143/0.4259。课程仍在缓慢上升，但高功率与
     跟踪差距没有解决；依用户覆盖决定继续且不中断。
 
+  v27正式run 15000门控：analysis/v27_full_gate_15000.json。训练继续。
+    按optimizer iteration，v27 vs v18@15000：reward 12.607 vs 22.372，
+    episode 993.83 vs 988.20，terrain 2.4283 vs 4.1741，linear/angular
+    tracking 0.5614/0.3238 vs 0.8714/0.4006。课程从12000轮的1.4910
+    继续升至2.4283，但仍低41.8%；reward、线/角跟踪分别低43.7%、
+    35.6%、19.2%。joint_power、power_distribution、orientation、
+    action_rate、smoothness惩罚幅值分别为v18的2.21倍、5.49倍、2.51倍、
+    2.03倍、1.84倍；autoencoder loss为2.49倍，value loss为2.10倍，
+    noise_std=0.4817（v18为0.3022）。surrogate=-0.000174，LR=1.1391e-4，
+    未见数值或学习率异常。
+    按total timesteps对齐v18@29999，v18 reward=23.344、terrain=4.1251、
+    linear/angular tracking=0.9095/0.4234。v27课程仍在学习，但任务表现与
+    动态成本持续显著落后；依用户覆盖决定继续到30000且不中断。
+
 ---
 
 ## 已废弃方向
