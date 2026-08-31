@@ -1572,6 +1572,21 @@ LR 死锁根本原因：
   NaN/Inf或CUDA/PhysX错误。门控点为200/500/1000，主要与相同8192-env、
   相同PD的v27同步比较；reward结论必须结合raw行为代理和terrain判断。
 
+  探针转正式训练：用户在探针约60轮时明确要求启动正式训练并开启定时监控；
+  已向探针PID 953发送SIGINT并确认退出，不恢复其checkpoint。探针未到首个
+  门控，只保留为启动健康证据，不得与正式run拼接。
+
+  正式run：Aug31_14-35-38_v29_mobility_regularizer_env8192_full
+  console：/tmp/dreamwaq_v29_mobility_regularizer_full.log
+  command：python -u legged_gym/legged_gym/scripts/train.py --task=boying
+    --headless --num_envs=8192 --seed=5 --max_iterations=30000
+    --run_name=v29_mobility_regularizer_env8192_full
+  初始训练PID：665；从头训练。启动核验通过：Physics Device=cuda:0、
+  GPU Pipeline enabled，已进入训练循环，无启动期NaN/Inf或CUDA/PhysX错误。
+  完整门控：200/500/1000/3000/5000/8000/12000/15000/20000/25000/29999。
+  同时与8192-env v27按optimizer iteration对比，并与4096-env v18同时报告
+  optimizer iteration和total timesteps口径。未经用户新指令不自动修改v30。
+
 ---
 
 ## 已废弃方向
