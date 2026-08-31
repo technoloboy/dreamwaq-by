@@ -51,7 +51,7 @@ def play(args):
     with open('train_cfg.pkl', 'wb') as f:
         pickle.dump(train_cfg, f)
     # override some parameters for testing
-    env_cfg.env.num_envs = min(env_cfg.env.num_envs, 50)
+    env_cfg.env.num_envs = min(env_cfg.env.num_envs, int(os.getenv("PLAY_NUM_ENVS", "50")))
     env_cfg.terrain.num_rows = 5
     env_cfg.terrain.num_cols = 5
     env_cfg.terrain.curriculum = False
@@ -83,16 +83,35 @@ def play(args):
     camera_vel = np.array([1., 1., 0.])
     camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
     img_idx = 0
+    max_steps = int(os.getenv("PLAY_MAX_STEPS", 10 * int(env.max_episode_length)))
+    frame_stride = max(1, int(os.getenv("PLAY_FRAME_STRIDE", "2")))
+    frame_dir = os.getenv(
+        "PLAY_FRAME_DIR",
+        os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'frames'),
+    )
+    if RECORD_FRAMES:
+        os.makedirs(frame_dir, exist_ok=True)
+    follow_camera_offset = np.fromstring(
+        os.getenv("PLAY_CAMERA_OFFSET", "-1.5,-1.5,0.8"), sep=",", dtype=np.float64
+    )
+    follow_camera_target = np.fromstring(
+        os.getenv("PLAY_CAMERA_TARGET", "0.0,0.0,0.25"), sep=",", dtype=np.float64
+    )
 
-    for i in range(10*int(env.max_episode_length)):
+    for i in range(max_steps):
         actions = policy(obs.detach(),obs_hist.detach())
         obs, _, _, obs_hist, rews, dones, infos = env.step(actions.detach())
         if RECORD_FRAMES:
-            if i % 2:
-                filename = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'frames', f"{img_idx}.png")
+            if i % frame_stride == 0:
+                filename = os.path.join(frame_dir, f"{img_idx:06d}.png")
                 env.gym.write_viewer_image_to_file(env.viewer, filename)
                 img_idx += 1 
-        if MOVE_CAMERA:
+        if FOLLOW_CAMERA:
+            robot_position = env.root_states[robot_index, :3].detach().cpu().numpy()
+            camera_position = robot_position + follow_camera_offset
+            camera_target = robot_position + follow_camera_target
+            env.set_camera(camera_position, camera_target)
+        elif MOVE_CAMERA:
             camera_position += camera_vel * env.dt
             env.set_camera(camera_position, camera_position + camera_direction)
 
@@ -136,9 +155,16 @@ def play(args):
         elif i==stop_rew_log:
             logger.print_rewards()
 
+    if env.viewer is not None:
+        env.gym.destroy_viewer(env.viewer)
+        env.viewer = None
+    env.gym.destroy_sim(env.sim)
+    print(f"Recorded {img_idx} frames to: {frame_dir}")
+
 if __name__ == '__main__':
-    EXPORT_POLICY = True
-    RECORD_FRAMES = False
-    MOVE_CAMERA = False
+    EXPORT_POLICY = os.getenv("PLAY_EXPORT_POLICY", "1") == "1"
+    RECORD_FRAMES = os.getenv("PLAY_RECORD_FRAMES", "0") == "1"
+    MOVE_CAMERA = os.getenv("PLAY_MOVE_CAMERA", "0") == "1"
+    FOLLOW_CAMERA = os.getenv("PLAY_FOLLOW_CAMERA", "0") == "1"
     args = get_args()
     play(args)

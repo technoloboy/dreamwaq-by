@@ -1644,6 +1644,13 @@ LR 死锁根本原因：
   PID 665发送SIGINT并确认退出；最后完整checkpoint=model_3350.pt，控制台
   KeyboardInterrupt为主动终止的预期记录。不得恢复v29或将其作为部署候选。
 
+  Play录像补充证据：使用model_3350.pt、1 env、关闭noise/domain randomization、
+  rough任务默认测试地形录制300帧（50 fps，约6秒），近景跟随相机视频：
+  legged_gym/logs/rough_boying/Aug31_14-35-38_v29_mobility_regularizer_env8192_full/
+  videos/v29_model_3350_play_close.mp4。录像中策略出现明显趴倒/失稳；该结果与
+  动态门失败方向一致，但因仅是单一随机rough场景，不替代plane/type6/type14
+  的确定性定量评估。
+
 ---
 
 ## 已废弃方向
