@@ -1679,6 +1679,15 @@ LR 死锁根本原因：
   progress>0.7后动态/功率仍保持v29退化水平，则否决该机制。最终仍需通过
   plane/type6/type14的速度、位置、扭矩、跟踪、功率、滑移、碰撞与reset门。
 
+  8192-env短探针：Aug31_18-13-54_v30_terrain_regularizer_probe_env8192，
+  seed=5、从头训练、目标300 iterations；PID=668，控制台
+  /tmp/dreamwaq_v30_terrain_regularizer_probe.log。启动核验通过：Physics
+  Device=cuda:0、GPU Pipeline enabled，已进入训练循环，无启动期NaN/Inf或
+  CUDA/PhysX错误。由于初始terrain level随机分布，约step10时全环境平均
+  terrain=2.29、regularizer progress=0.63；实际正则按每个环境独立计算，
+  低等级失败环境仍获得较松探索区间，高等级环境从起始即承担较强护栏。
+  首个正式判定点为200；此前数据只用于启动健康检查。
+
 ---
 
 ## 已废弃方向
