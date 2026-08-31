@@ -1607,6 +1607,24 @@ LR 死锁根本原因：
   单点停止，继续到1000门控。若长episode稳定后raw动态/功率差距仍持续超过
   10%，则该协调放松只能视为任务恢复诊断，不能作为安全候选。
 
+  v29正式run 1000门控：analysis/v29_gate_1000_vs_v27.json、
+  analysis/v29_gate_1000_vs_v18.json。训练继续到3000复核。
+    v29 vs v27@1000：reward 12.455 vs 6.015、episode 981.82 vs 979.27、
+    terrain 1.2385 vs 0、linear/angular tracking 0.6187/0.2991 vs
+    0.1970/0.2521，证明协调放松确实恢复了任务学习和课程，而非仅账面增益。
+    v29 vs v18@1000：reward低3.0%、episode高5.2%、terrain高21.9%、
+    linear tracking高5.9%、angular tracking低0.6%，任务侧达到同步门。
+    按total timesteps对齐v18@2000，v29 reward低18.5%、terrain低54.0%、
+    linear/angular tracking低17.8%/5.2%。
+    还原权重后的raw代理相对v18@1000：orientation、lin_vel_z、ang_vel_xy、
+    action_rate、smoothness、dof_acc分别恶化约18%、81%、13%、20%、33%、
+    45%；未改权重的joint_power和power_distribution惩罚幅值约为v18的
+    3.73倍和6.23倍。相对v29@500，动态护栏超10%的现象仍持续。
+    surrogate=+0.000642，noise_std=0.4420，尚无NaN或LR死锁。
+  判定：任务门通过，但动态/功率门失败；当前仅为diagnostic/borderline，不能
+  作为安全候选。继续到3000观察长episode和noise下降后raw差距是否收敛；若
+  仍持续显著超限，则停止并reject，不以更高reward掩盖动力学退化。
+
 ---
 
 ## 已废弃方向
