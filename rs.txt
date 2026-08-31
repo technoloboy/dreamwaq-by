@@ -1525,6 +1525,14 @@ LR 死锁根本原因：
   action_rate、smoothness、joint_power、power_distribution惩罚幅值不得持续
   恶化超过10%。若只提高账面reward而raw行为指标/课程不改善，则reject。
 
+  8192-env短探针：Aug31_14-20-53_v28_tracking_rebalance_probe_env8192，
+  seed=5、从头训练、目标1000 iterations；控制台
+  /tmp/dreamwaq_v28_tracking_rebalance_probe.log，训练PID=1043。
+  启动核验：Physics Device=cuda:0、GPU Pipeline enabled，已进入训练循环；
+  无启动期NaN/Inf或CUDA/PhysX错误。门控点为200/500/1000，探针期间只与
+  相同8192-env v27正式run按optimizer iteration对比，并辅以v18参考，避免
+  把奖励权重变化造成的账面增益误判为行为改善。
+
 ---
 
 ## 已废弃方向
