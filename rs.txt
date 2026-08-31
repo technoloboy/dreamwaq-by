@@ -1565,6 +1565,13 @@ LR 死锁根本原因：
   或joint_power/power_distribution恶化超过10%，则reject；任何位置/扭矩/
   速度安全门失败均不得作为部署候选。
 
+  8192-env短探针：Aug31_14-31-36_v29_mobility_regularizer_probe_env8192，
+  seed=5、从头训练、目标1000 iterations；训练PID=953，控制台
+  /tmp/dreamwaq_v29_mobility_regularizer_probe.log。启动核验通过：
+  Physics Device=cuda:0、GPU Pipeline enabled，已进入训练循环，无启动期
+  NaN/Inf或CUDA/PhysX错误。门控点为200/500/1000，主要与相同8192-env、
+  相同PD的v27同步比较；reward结论必须结合raw行为代理和terrain判断。
+
 ---
 
 ## 已废弃方向
