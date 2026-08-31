@@ -1625,6 +1625,25 @@ LR 死锁根本原因：
   作为安全候选。继续到3000观察长episode和noise下降后raw差距是否收敛；若
   仍持续显著超限，则停止并reject，不以更高reward掩盖动力学退化。
 
+  v29正式run 3000门控与终止：analysis/v29_gate_3000_vs_v27.json、
+  analysis/v29_gate_3000_vs_v18.json。证据充分后reject并停止。
+    v29 vs v27@3000：reward 14.496 vs 10.032、terrain 3.5825 vs 0、
+    linear tracking 0.6920 vs 0.2171，确认移动正则放松能够修复v27课程锁死；
+    但angular tracking 0.2775 vs 0.3814，退化27.2%。
+    v29 vs v18@3000：reward低13.8%、episode高0.8%、terrain高6.7%、
+    linear/angular tracking低9.4%/15.9%。按total timesteps对齐v18@6000，
+    reward低22.8%、terrain低3.9%、linear/angular tracking低14.9%/22.9%。
+    还原权重后的raw代理相对v18@3000：orientation、lin_vel_z、ang_vel_xy、
+    action_rate、smoothness、dof_acc分别恶化约30%、53%、19%、40%、35%、
+    36%；未改权重的joint_power和power_distribution惩罚幅值约为v18的
+    2.55倍和4.52倍。上述动态超限在500、1000、2380、3000多门控持续，
+    没有随长episode或noise下降收敛；surrogate@3000仍为正+0.000234。
+  判定：reject（diagnostic-only）。v29证明“多项正则共同压制”是v27课程慢的
+  一部分原因，但放松后策略通过更激进、更耗能的动作换取terrain，未达到
+  动态/功率安全门，继续训练无望修复该因果机制。已在约3350轮向唯一训练
+  PID 665发送SIGINT并确认退出；最后完整checkpoint=model_3350.pt，控制台
+  KeyboardInterrupt为主动终止的预期记录。不得恢复v29或将其作为部署候选。
+
 ---
 
 ## 已废弃方向
