@@ -1587,6 +1587,26 @@ LR 死锁根本原因：
   同时与8192-env v27按optimizer iteration对比，并与4096-env v18同时报告
   optimizer iteration和total timesteps口径。未经用户新指令不自动修改v30。
 
+  v29正式run 200/500门控：analysis/v29_gate_200_500_vs_v27.json、
+  analysis/v29_gate_200_500_vs_v18.json。训练继续。
+    @200：v29 reward=3.882、episode=855.22、terrain=0.0035、linear/angular
+    tracking=0.2061/0.2125；v27同轮次为-0.348、29.48、0、
+    0.0051/0.0048，说明协调放松显著修复了v27的早期生存/跟踪崩溃。
+    @500：v29 reward=8.096、episode=903.84、terrain=0.3151、linear/angular
+    tracking=0.3799/0.2757；v27同轮次仍为-0.120、62.90、0、
+    0.0086/0.0104。相对v18@500，v29 reward低15.5%、episode低6.9%，
+    terrain高24.3%，linear tracking高16.4%，angular tracking低12.7%。
+    按total timesteps对齐v18@1000，v29 reward低36.9%、terrain低69.0%、
+    linear tracking低34.9%、angular tracking低8.4%。
+    由于六项权重改变，动态项必须还原raw代理后比较。v29@500相对v18@500
+    的raw orientation、lin_vel_z、ang_vel_xy、action_rate、smoothness、dof_acc
+    分别恶化约29%、55%、38%、39%、54%、72%；未改权重的joint_power和
+    power_distribution惩罚幅值约为v18的4.06倍和9.75倍。noise_std=0.5166
+    （v18=0.4477），surrogate=+0.000527但尚非持续窗口异常。
+  判定：任务学习方向相对v27明显改善，但动态与功率护栏尚未通过；不因早期
+  单点停止，继续到1000门控。若长episode稳定后raw动态/功率差距仍持续超过
+  10%，则该协调放松只能视为任务恢复诊断，不能作为安全候选。
+
 ---
 
 ## 已废弃方向
