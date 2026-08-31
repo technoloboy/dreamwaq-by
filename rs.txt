@@ -1500,6 +1500,31 @@ LR 死锁根本原因：
     不是CUDA/PhysX故障。本run未到30000，因此不得标记为完整训练；后续如需
     评价，只能作为约22000轮的中期checkpoint与v18做同口径比较。
 
+## v28：v27 PD 下的跟踪优先级重分配（定义/探针阶段）
+
+  父版本：v27分组PD；保持hip/thigh/calf Kp/Kd=77.3317/4.9231、
+  65.7234/4.1841、43.4511/2.7662，action_scale=0.25，其余奖励、PPO、
+  随机化和课程不变。
+
+  证据：v27@20000相对v18同轮次，linear/angular tracking分别低33.5%和
+  23.4%，terrain低21.8%；同时action_rate、power_distribution、orientation
+  等动态成本已经更差。历史实验又证明增强orientation（v7）、smoothness
+  （v23）或功率惩罚不能修复该物理失配。因此不通过放松安全成本来虚增
+  reward，也不重复已否决的惩罚增强方向。
+
+  单一概念变量：重新分配命令跟踪梯度的线速度/偏航优先级。
+    tracking_lin_vel：1.00 -> 1.25
+    tracking_ang_vel：0.50 -> 0.40
+  总跟踪权重仅由1.50增至1.65（+10%），但线/角相对权重由2.0提高到3.125。
+  目标是优先修复阻塞terrain curriculum的线速度跟踪，同时避免简单放大所有
+  正奖励；joint_power、power_distribution、action_rate、smoothness、
+  orientation、lin_vel_z等权重全部保持不变。
+
+  可证伪预测：相对v27同步门控，linear tracking和terrain应更早上升；
+  angular tracking允许最多恶化10%，reward提升不能仅来自权重算术变化；
+  action_rate、smoothness、joint_power、power_distribution惩罚幅值不得持续
+  恶化超过10%。若只提高账面reward而raw行为指标/课程不改善，则reject。
+
 ---
 
 ## 已废弃方向

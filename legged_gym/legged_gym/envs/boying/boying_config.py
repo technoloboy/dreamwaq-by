@@ -76,6 +76,13 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         feet_air_time_threshold = 0.3
 
         class scales( LeggedRobotCfg.rewards.scales ):
+            # v28: v27 survives and eventually reaches terrain~3.3, but at 20k its
+            # linear tracking is 33.5% below v18 while angular tracking is 23.4%
+            # below. Reallocate tracking priority toward translation without
+            # weakening the existing dynamics/safety regularizers.
+            tracking_lin_vel = 1.25
+            tracking_ang_vel = 0.40
+
             # --- stability: boying has higher CoM; orientation still ~50% worse than GO1 at equal steps ---
             orientation  = -0.3       # go1: -0.2; -0.5 caused catastrophic collapse (Jul23 v7), -0.3 is upper limit for Boying
             ang_vel_xy   = -0.05      # go1: -0.05
