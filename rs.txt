@@ -1882,6 +1882,27 @@ LR 死锁根本原因：
     0.30086，差距仍大。下一门控@1000判断terrain能否脱离0并确认surrogate
     是否持续转正；无论普通效果好坏均按用户要求继续至30000。
 
+  v32正式run 1000门控：analysis/v32_gate_1000_vs_v31.json、
+  analysis/v32_gate_1000_vs_v29.json、analysis/v32_gate_1000_vs_v18.json。
+  训练按用户要求继续，不中断。
+    v32@1000 reward=7.836、episode=962.85、terrain=0、linear/angular
+    tracking=0.20743/0.32069。episode和角速度跟踪已经恢复，但terrain仍完全
+    锁在0，线速度跟踪显著落后；v31@1000为9.507、964.71、0.7157、
+    0.48047/0.28909，v29@1000为12.455、981.82、1.2385、
+    0.61866/0.29905。确定性速度估计至此没有改善v31的核心terrain/linear
+    tracking问题，反而使其更明显。
+    Loss/vel_estimation=0.04705、autoencoder=1.0837；估计/重构账面损失持续
+    显著低于旧run，但没有转化为任务能力。orientation惩罚=-0.01697，幅值为
+    v29/v18的2.25倍/2.21倍；joint_power=-0.00365、power_distribution=
+    -0.00700，分别约为v18@1000的2.73倍/4.96倍。surrogate=+0.00229，已在
+    200/500/1000三个门控持续为正；LR降至3.121e-5但尚未锁死，noise_std=
+    0.531，无NaN/Inf或CUDA/PhysX错误。
+    按total timesteps，v32@1000对应v18@2000；v18@2000 reward=15.274、
+    episode=926.26、terrain=2.6928、linear/angular tracking=0.75239/
+    0.31558。v32仅episode与角跟踪接近，课程和线跟踪差距巨大。虽然按通常
+    闭环规则该机制已具有reject证据，仍遵守用户明确要求继续到30000；后续
+    门控继续记录恢复可能性、surrogate和LR状态，不以普通效果失败中断。
+
 ---
 
 ## 已废弃方向
