@@ -1963,6 +1963,22 @@ LR 死锁根本原因：
     但未修复课程速度、速度估计泛化或功率/动作代偿。遵照用户要求继续到30000，
     下一完整门控为5000。
 
+  v32正式run 5000门控：analysis/v32_gate_5000_vs_v18.json。v31/v29分别在
+  约3250/3350轮停止，故不存在5000同步数据，不能外推其曲线。训练继续。
+    v32@5000 reward=11.380、episode=994.65、terrain=2.9367、linear/angular
+    tracking=0.62626/0.30489；v18@5000为17.996、964.20、3.6418、
+    0.79558/0.34892，v32的reward、terrain、线/角跟踪分别低36.8%、19.4%、
+    21.3%、12.6%。episode保持健康，但课程在约3附近出现暂时平台。
+    Loss/vel_estimation=0.13577，较@3000的0.16676有所回落但仍约为@1000的
+    2.89倍；autoencoder=2.142。相对v18同轮次，orientation、lin_vel_z、
+    action_rate、smoothness、dof_acc、joint_power、power_distribution惩罚
+    幅值约2.46、2.00、1.71、1.45、1.07、2.45、6.38倍，表明后期追赶仍以
+    明显姿态、竖直运动、动作变化和功率代偿为代价。surrogate=+0.00056、
+    LR=1.0535e-4、noise_std=0.478，无数值或GPU异常。
+    按total timesteps，v32@5000对应v18@10000；v18@10000 reward=21.625、
+    terrain=4.1586、linear/angular tracking=0.87437/0.39360，差距进一步扩大。
+    v32仍为diagnostic-only倾向；遵照用户要求不中断，下一完整门控为8000。
+
 ---
 
 ## 已废弃方向
