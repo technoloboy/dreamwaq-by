@@ -1923,6 +1923,24 @@ LR 死锁根本原因：
     0.27553/0.35607，核心差距仍很大。继续按用户要求运行到30000，@2500/
     @3000重点观察课程恢复斜率、速度估计误差以及正则进度启用后的动力学代偿。
 
+  v32正式run 2500门控：analysis/v32_gate_2500_vs_v31.json、
+  analysis/v32_gate_2500_vs_v29.json、analysis/v32_gate_2500_vs_v18.json。
+  训练继续。
+    v32@2500 reward=11.205、episode=981.35、terrain=0.9719、linear/angular
+    tracking=0.48904/0.30962，较@2000的terrain=0.1875和linear=0.3561
+    出现明显加速恢复；但相对v31@2500，reward低16.4%、terrain低59.5%、
+    linear tracking低20.5%，相对v29差距更大。episode与角跟踪已达到同步水平。
+    mobility_regularizer_progress=0.2130，低于v31的0.3799，主要由terrain进度
+    落后造成。随着状态/课程扩展，Loss/vel_estimation继续升至0.1592，虽
+    autoencoder仍仅2.167，但不再呈持续改善趋势。相对v18@2500，orientation、
+    lin_vel_z、action_rate、smoothness惩罚幅值分别约1.97、1.26、1.19、
+    1.30倍；joint_power与power_distribution约2.71倍/4.55倍，显示课程恢复
+    同时伴随动力学和功率代偿。surrogate=+0.00347、LR=4.682e-5、noise_std=
+    0.511，无数值或GPU异常。
+    按total timesteps，v32@2500对应v18@5000；v18@5000 reward=17.996、
+    terrain=3.6418、linear/angular tracking=0.79558/0.34892，v32仍明显落后。
+    继续至@3000核心门控并保持训练不中断。
+
 ---
 
 ## 已废弃方向
