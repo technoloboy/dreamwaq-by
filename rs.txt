@@ -2011,6 +2011,20 @@ LR 死锁根本原因：
     terrain=4.2233、linear/angular tracking=0.91428/0.42587，差距仍大。
     继续按用户要求至30000，下一完整门控为15000。
 
+  v32正式run 15000门控：analysis/v32_gate_15000_vs_v18.json。训练继续。
+    v32@15000 reward=15.651、episode=988.19、terrain=3.0867、linear/angular
+    tracking=0.73973/0.33305；v18@15000为22.372、988.20、4.1741、
+    0.87141/0.40065，除episode外分别低30.0%、26.1%、15.1%、16.9%。
+    terrain仍维持约3.09平台，没有显示继续追近v18课程水平的趋势。
+    Loss/vel_estimation=0.12071，与12000近似持平；autoencoder=2.211。相对
+    v18同轮次，orientation、lin_vel_z、ang_vel_xy、action_rate、smoothness、
+    joint_power、power_distribution惩罚幅值约1.75、2.32、1.53、2.12、1.73、
+    2.03、4.30倍，仅dof_acc略优。surrogate=-0.00295、LR=1.0535e-4、
+    noise_std=0.455，训练数值健康。
+    按total timesteps，v32@15000已对应v18完整@29999；v18最终reward=23.344、
+    terrain=4.1251、linear/angular tracking=0.90946/0.42343，v32依然显著落后。
+    至此增加样本量也未消除差距；继续按用户要求运行，下一门控为20000。
+
 ---
 
 ## 已废弃方向
