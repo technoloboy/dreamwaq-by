@@ -89,9 +89,13 @@ class ActorCritic_DWAQ(nn.Module):
         # code = mean_latent + var*code_temp
         # print("latent : ",code[0])
         mean_vel = self.encode_mean_vel(distribution)
-        logvar_vel = self.encode_mean_vel(distribution)
+        # v32: keep the supervised velocity estimate deterministic.  The old
+        # implementation accidentally reused the mean head for log-variance
+        # and then sampled the velocity fed to the actor, adding estimator
+        # noise to both training and inference.
+        logvar_vel = self.encode_logvar_vel(distribution)
         code_latent = self.reparameterise(mean_latent,logvar_latent)
-        code_vel = self.reparameterise(mean_vel,logvar_vel)
+        code_vel = mean_vel
         code = torch.cat((code_vel,code_latent),dim=-1)
         decode = self.decoder(code)
         return code,code_vel,decode,mean_vel,logvar_vel,mean_latent,logvar_latent

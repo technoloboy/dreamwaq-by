@@ -126,6 +126,7 @@ class PPO:
         mean_value_loss = 0
         mean_surrogate_loss = 0
         mean_autoenc_loss = 0
+        mean_vel_estimation_loss = 0
         # if self.actor_critic.is_recurrent:
         #     generator = self.storage.reccurent_mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
         # else:
@@ -164,7 +165,8 @@ class PPO:
                 decode_target = obs_batch
                 vel_target.requires_grad = False
                 decode_target.requires_grad = False
-                autoenc_loss = (nn.MSELoss()(code_vel,vel_target) + nn.MSELoss()(decode,decode_target) + beta*(-0.5 * torch.sum(1 + logvar_latent - mean_latent.pow(2) - logvar_latent.exp())))/self.num_mini_batches
+                vel_estimation_loss = nn.MSELoss()(mean_vel, vel_target)
+                autoenc_loss = (vel_estimation_loss + nn.MSELoss()(decode,decode_target) + beta*(-0.5 * torch.sum(1 + logvar_latent - mean_latent.pow(2) - logvar_latent.exp())))/self.num_mini_batches
                 # estimation_loss = (code[:,0:3] - prev_critic_obs_batch[:,45:48]).pow(2).mean()
                 # reconst_loss = (decode - obs_batch).pow(2).mean()
                 # latent_loss = beta*(-0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp()))/mean.shape[0]
@@ -197,10 +199,12 @@ class PPO:
                 mean_value_loss += value_loss.item()
                 mean_surrogate_loss += surrogate_loss.item()
                 mean_autoenc_loss += autoenc_loss.item()
+                mean_vel_estimation_loss += vel_estimation_loss.item()
 
         num_updates = self.num_learning_epochs * self.num_mini_batches
         mean_value_loss /= num_updates
         mean_surrogate_loss /= num_updates
+        mean_vel_estimation_loss /= num_updates
         self.storage.clear()
 
-        return mean_value_loss, mean_surrogate_loss, mean_autoenc_loss
+        return mean_value_loss, mean_surrogate_loss, mean_autoenc_loss, mean_vel_estimation_loss

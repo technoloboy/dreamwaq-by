@@ -1795,6 +1795,48 @@ LR 死锁根本原因：
   model_3250.pt，不得恢复或作为部署候选。定时监控任务随该机制终止而删除；
   未经用户新指令不自动创建v32或启动新训练。
 
+## v32：v31基础上的确定性监督线速度估计（正式实验定义）
+
+  父版本：v31。保持v27分组PD、v29移动正则起始比例、v31的1000轮全局暖机及
+  1000~3000轮地形课程耦合恢复、tracking、action_scale=0.25、PPO、随机化、
+  地形课程、8192 environments和seed=5全部不变。v30因首批高等级地形触发
+  完整正则而冷启动崩溃，故不作为父版本。
+
+  代码缺陷与假设：DWAQ速度分支原来用encode_mean_vel同时生成mean_vel与
+  logvar_vel，并通过reparameterise把随机采样code_vel送入actor；速度监督MSE
+  也施加在随机code_vel上。该错误会把不可控的估计噪声同时注入训练和推理，
+  可能解释v31在相同暖机权重下相对v29出现更高autoencoder loss、较慢terrain
+  和linear tracking。可证伪假设是：移除速度估计随机性后，速度监督损失下降，
+  v31任务学习的复现性和早期课程进度改善，且不通过更激进的动态成本换取收益。
+
+  单一概念机制：确定性监督线速度估计。
+    - logvar_vel改为调用独立的encode_logvar_vel，修复错误分支；
+    - actor和decoder的3维速度输入改用mean_vel，不再采样code_vel；
+    - 速度监督改为MSE(mean_vel, vel_target)；
+    - 16维latent VAE的采样与KL保持原样；
+    - 新增Loss/vel_estimation用于单独审计速度监督MSE。
+  以上均属于同一个速度估计机制；没有修改奖励、PD、动作尺度或课程配置。
+
+  训练计划：从头运行30000 iterations，不恢复v31 checkpoint。门控为
+  200/500/1000/1500/2000/2500/3000/5000/8000/12000/15000/20000/
+  25000/29999；主要与同为8192-env的v31/v29按optimizer iteration比较，并
+  同时与4096-env v18报告optimizer iteration和total timesteps两种口径。
+  用户要求不中断直至训练结束；普通波动或单点门控失败只记录，不停止。仅在
+  NaN/Inf、CUDA/PhysX故障、进程异常退出或持续结构性崩溃使训练无法继续时处置。
+
+  核心观察：Loss/vel_estimation、autoencoder、reward、episode、terrain、
+  linear/angular tracking、noise、surrogate、value、LR以及所有奖励项。最终仍需
+  用多个checkpoint做plane和rough type6/type14串行评估；安全门保持type6峰值
+  速度利用率<1.10、position margin>0且零越限、torque<1.0、plane tracking
+  RMS相对v18恶化不超过10%，并检查功率、冲击、滑移、碰撞和reset。
+
+  启动前验证：Python编译与独立模块测试通过；相同历史观测的mean_vel/code_vel
+  完全确定，16维latent仍保持随机采样，速度均值头可正常反向传播。512-env、
+  seed=5的10轮Isaac Gym GPU冒烟run为
+  Sep01_19-50-43_v32_deterministic_velocity_smoke，完整生成model_10.pt；
+  TensorBoard已确认新增Loss/vel_estimation共10个数据点。冒烟未出现NaN/Inf、
+  CUDA/PhysX或PPO接口错误，仅用于启动健康验证，不得与正式run曲线拼接。
+
 ---
 
 ## 已废弃方向
