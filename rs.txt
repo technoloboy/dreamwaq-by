@@ -1845,6 +1845,24 @@ LR 死锁根本原因：
   0.6928下降至第2轮0.3031；无NaN/Inf、CUDA/PhysX或PPO接口错误。该正式run
   不与512-env冒烟曲线拼接。
 
+  v32正式run 200门控：analysis/v32_gate_200_vs_v31.json、
+  analysis/v32_gate_200_vs_v29.json、analysis/v32_gate_200_vs_v18.json。
+  训练按用户要求继续，不因该门控中断。
+    v32@200 reward=-0.250、episode=29.91、terrain=0、linear/angular
+    tracking=0.00545/0.00558；v31@200为2.683、533.82、0.00216、
+    0.15276/0.14462，v29@200为3.882、855.22、0.00352、
+    0.20607/0.21254。确定性速度估计没有复现v31/v29的早期任务学习，当前
+    表现为与v30相似的短episode/零terrain冷启动。
+    v32@200 Loss/vel_estimation=0.2650（旧run无同名可比tag）；autoencoder
+    loss=2.721，低于v31/v29约57.6%/58.2%，但在episode已崩溃时该下降可能
+    来自更窄、更简单的状态分布，不能解释为估计质量已经改善。surrogate=
+    +0.00438，LR=1.580e-4，noise_std=0.582；尚无NaN/Inf、CUDA/PhysX错误
+    或LR死锁。
+    按total timesteps，v32@200应与4096-env v18@400对齐；v18@400 reward=
+    7.985、episode=976.12、terrain=0.0691、linear/angular tracking=
+    0.28077/0.29945，差距更大。训练仍保持唯一进程存活；后续@500/@1000
+    重点判断episode、terrain、tracking能否恢复以及surrogate是否持续转正。
+
 ---
 
 ## 已废弃方向
