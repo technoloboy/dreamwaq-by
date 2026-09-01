@@ -1712,6 +1712,16 @@ LR 死锁根本原因：
   joint_power/power_distribution应相对v29@3000改善至少20%，同时tracking与
   terrain不持续低于v29超过10%。失败则reject，不恢复checkpoint。
 
+  正式run：Sep01_10-22-19_v31_delayed_terrain_regularizer_env8192_full；
+  console=/tmp/dreamwaq_v31_delayed_terrain_regularizer_full.log，初始PID=720。
+  命令为train.py --task=boying --headless --num_envs=8192 --seed=5
+  --max_iterations=30000 --run_name=v31_delayed_terrain_regularizer_env8192_full。
+  从头训练，启动核验通过：Physics Device=cuda:0、GPU Pipeline enabled，
+  已进入训练循环，无启动期NaN/Inf或CUDA/PhysX错误；约iteration14时
+  mobility_regularizer_progress=0，符合前1000轮暖机定义。已建立每30分钟
+  低干扰监控，门控为200/500/1000/1500/2000/2500/3000/5000/8000/
+  12000/15000/20000/25000/29999。
+
 ---
 
 ## 已废弃方向
