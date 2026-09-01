@@ -1863,6 +1863,25 @@ LR 死锁根本原因：
     0.28077/0.29945，差距更大。训练仍保持唯一进程存活；后续@500/@1000
     重点判断episode、terrain、tracking能否恢复以及surrogate是否持续转正。
 
+  v32正式run 500门控：analysis/v32_gate_500_vs_v31.json、
+  analysis/v32_gate_500_vs_v29.json、analysis/v32_gate_500_vs_v18.json。
+  训练按用户要求继续，不中断。
+    v32@500 reward=4.054、episode=754.63、terrain=0、linear/angular
+    tracking=0.16142/0.19147；相对@200已明显恢复长episode与tracking，但仍低于
+    v31@500的6.945、931.63、0.2177、0.36130/0.21715，也低于v29@500的
+    8.096、903.84、0.3151、0.37994/0.27567。尤其terrain仍为0，说明修复
+    速度估计后尚未恢复课程学习。
+    v32@500 Loss/vel_estimation=0.04452，较@200的0.2650下降83.2%；
+    autoencoder=1.298，显著低于v31/v29的9.298/7.313。但任务侧仍落后，说明
+    更低估计/重构损失尚未转化为更好的策略学习。orientation惩罚=-0.03904，
+    幅值为v31/v29的2.66倍/6.19倍；joint_power=-0.00339，约为v18@500的
+    3.50倍，power_distribution=-0.00638，约为v18的10.19倍。surrogate=
+    +0.00176，value=0.01563，noise_std=0.551，尚无NaN/Inf或LR死锁。
+    按total timesteps，v32@500对应v18@1000；v18@1000 reward=12.835、
+    episode=932.93、terrain=1.0158、linear/angular tracking=0.58399/
+    0.30086，差距仍大。下一门控@1000判断terrain能否脱离0并确认surrogate
+    是否持续转正；无论普通效果好坏均按用户要求继续至30000。
+
 ---
 
 ## 已废弃方向
