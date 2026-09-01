@@ -1979,6 +1979,24 @@ LR 死锁根本原因：
     terrain=4.1586、linear/angular tracking=0.87437/0.39360，差距进一步扩大。
     v32仍为diagnostic-only倾向；遵照用户要求不中断，下一完整门控为8000。
 
+  v32正式run 8000门控：analysis/v32_gate_8000_vs_v18.json。v31/v29无该
+  同步点，训练继续。
+    v32@8000 reward=13.821、episode=1000.96、terrain=2.9741、linear/angular
+    tracking=0.69594/0.32963；v18@8000为20.795、985.02、4.0633、
+    0.85644/0.38232，v32分别低33.5%、高1.6%、低26.8%、低18.7%/13.8%。
+    episode完全稳定，但terrain从5000轮的2.9367仅增至2.9741，已形成约3级
+    的持续课程平台，不能归因于短期冷启动。
+    Loss/vel_estimation=0.12672，在5000~8000轮缓慢改善但仍远高于1000轮；
+    autoencoder=2.004。相对v18同轮次，orientation、lin_vel_z、ang_vel_xy、
+    action_rate、smoothness、joint_power、power_distribution惩罚幅值约2.25、
+    2.10、1.25、1.88、1.56、2.13、5.22倍；只有dof_acc略优5.1%。
+    surrogate=-0.00196已转回健康负值，LR=1.0535e-4、noise_std=0.469，无
+    NaN/Inf或GPU异常。
+    按total timesteps，v32@8000对应v18@16000；v18@16000 reward=22.313、
+    terrain=4.1946、linear/angular tracking=0.88140/0.40944，差距仍扩大。
+    当前证据继续支持diagnostic-only/reject倾向，但按用户要求训练到30000，
+    下一完整门控为12000。
+
 ---
 
 ## 已废弃方向
