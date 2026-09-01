@@ -1837,6 +1837,14 @@ LR 死锁根本原因：
   TensorBoard已确认新增Loss/vel_estimation共10个数据点。冒烟未出现NaN/Inf、
   CUDA/PhysX或PPO接口错误，仅用于启动健康验证，不得与正式run曲线拼接。
 
+  正式run：Sep01_19-57-02_v32_deterministic_velocity_v31base_env8192_full；
+  初始PID=554，由Codex持久终端会话承载；命令为train.py --task=boying
+  --headless --num_envs=8192 --seed=5 --max_iterations=30000
+  --run_name=v32_deterministic_velocity_v31base_env8192_full。从头训练，GPU PhysX
+  与GPU pipeline均已启用。启动后已进入训练循环，Loss/vel_estimation从首轮
+  0.6928下降至第2轮0.3031；无NaN/Inf、CUDA/PhysX或PPO接口错误。该正式run
+  不与512-env冒烟曲线拼接。
+
 ---
 
 ## 已废弃方向
