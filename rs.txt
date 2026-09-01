@@ -1941,6 +1941,28 @@ LR 死锁根本原因：
     terrain=3.6418、linear/angular tracking=0.79558/0.34892，v32仍明显落后。
     继续至@3000核心门控并保持训练不中断。
 
+  v32正式run 3000核心门控：analysis/v32_gate_3000_vs_v31.json、
+  analysis/v32_gate_3000_vs_v29.json、analysis/v32_gate_3000_vs_v18.json。
+  训练继续。
+    v32@3000 reward=11.403、episode=967.73、terrain=1.9824、linear/angular
+    tracking=0.59887/0.29910。相对v31@3000，reward低7.1%、episode低2.6%、
+    terrain低22.6%、linear/angular tracking低7.5%/7.3%；除terrain外任务项
+    已进入10%窗口，且课程从@2500的0.972快速升至1.982。相对v29@3000，
+    reward、terrain、linear tracking仍低21.3%、44.7%、13.5%。
+    mobility_regularizer_progress=0.4557（v31为0.5272）。Loss/vel_estimation=
+    0.16676，较@1000的0.04705增至3.54倍；autoencoder仍低2.363，但速度
+    监督质量随课程扩展明显恶化。相对v31，smoothness、dof_acc、joint_power、
+    power_distribution惩罚幅值改善约15.9%、37.4%、7.7%、7.0%，但
+    orientation和lin_vel_z恶化18.7%/25.1%；相对v18，orientation、lin_vel_z、
+    action_rate、smoothness、joint_power、power_distribution幅值约1.78、1.60、
+    1.46、1.41、2.47、5.30倍，仍不是动力学安全候选。surrogate=+0.00136，
+    noise_std=0.495，无NaN/Inf、CUDA/PhysX或LR异常。
+    按total timesteps，v32@3000对应v18@6000；v18@6000 reward=18.780、
+    terrain=3.7282、linear/angular tracking=0.81306/0.35974，v32仍明显落后。
+    结论暂为diagnostic-only倾向：确定性速度输入可能帮助v31机制后期追赶，
+    但未修复课程速度、速度估计泛化或功率/动作代偿。遵照用户要求继续到30000，
+    下一完整门控为5000。
+
 ---
 
 ## 已废弃方向
