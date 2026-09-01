@@ -1755,7 +1755,24 @@ LR 死锁根本原因：
     不能视为严格确定性单次复现；这降低了后续因果比较置信度。约iteration1437
     时progress=0.073、reward=11.35、episode=949.5、terrain=1.285，仍在改善，
     故不因1000单点停止。@1500重点判断terrain/tracking是否在正则开始恢复后
-    继续上升；若持续回落或多项训练健康指标恶化，再处置。
+  继续上升；若持续回落或多项训练健康指标恶化，再处置。
+
+  v31正式run 1500/2000门控：analysis/v31_gate_1500_2000_vs_v29.json、
+  analysis/v31_gate_1500_2000_vs_v18.json。正则恢复阶段训练继续。
+    @1500相对v29：reward低14.7%、episode高1.4%、terrain低41.8%、linear
+    tracking低15.7%、angular tracking高3.9%。任务仍落后，但没有在正则开始
+    启用时发生episode/terrain崩溃。
+    @2000相对v29：reward 12.48 vs 13.58（-8.1%）、episode 994.98 vs
+    956.14（+4.1%）、terrain 1.98 vs 2.96（-33.0%）、linear tracking
+    0.62 vs 0.68（-9.2%）、angular tracking 0.32 vs 0.28（+14.0%）。除terrain
+    外，任务侧已基本进入或优于10%窗口，且terrain从@1500的1.36继续升至1.98。
+    相对v18@2000，reward低18.3%、terrain低26.4%、linear tracking低17.7%、
+    angular tracking近似持平；episode高7.4%。noise_std=0.47，无NaN/Inf、
+    CUDA/PhysX或LR死锁。约iteration2336时progress=0.325、terrain=2.262、
+    reward=12.46，说明延迟正则按设计逐步启用，课程仍在上升。
+  判定：尚不能keep，主要风险是terrain学习速度持续落后；但从1000到2000差距
+  正在缩小，正则启用后也未导致回落。继续至2500/3000核心因果门，届时必须
+  同时评价任务保持和动态/功率是否相对v29改善，不能只用reward决定。
 
 ---
 
