@@ -1774,6 +1774,27 @@ LR 死锁根本原因：
   正在缩小，正则启用后也未导致回落。继续至2500/3000核心因果门，届时必须
   同时评价任务保持和动态/功率是否相对v29改善，不能只用reward决定。
 
+  v31正式run 2500/3000核心门控与终止：
+  analysis/v31_gate_2500_3000_vs_v29.json、
+  analysis/v31_gate_2500_3000_vs_v18.json。机制未通过，reject并停止。
+    @3000 progress=0.527。v31 vs v29：reward 12.27 vs 14.50（-15.4%）、
+    episode 993.35 vs 952.84（+4.3%）、terrain 2.56 vs 3.58（-28.5%）、
+    linear/angular tracking 0.65/0.32 vs 0.69/0.28（-6.2%/+16.1%）。
+    因此任务保持门中terrain和reward均持续低于v29超过10%。相对v18@3000，
+    reward低27.0%、terrain低23.9%、linear tracking低14.7%，angular tracking
+    低3.1%；同iteration比较仍需注意v31每轮采样量为v18的2倍。
+    使用progress均值估算各项有效权重后，v31相对v29的raw动态代理变化约为：
+    orientation +25.0%、lin_vel_z -4.9%、ang_vel_xy -5.6%、action_rate
+    +16.0%、smoothness +40.3%、dof_acc +18.0%；未改权重的joint_power
+    +4.8%、power_distribution +26.3%。由于factor按环境变化且与raw行为相关，
+    六项换算是近似代理而非严格去权重结果；但方向已足够明确：没有任何目标项
+    达到相对v29改善20%，且五项反而恶化，功率分布也显著恶化。
+  判定：reject。延迟启用解决了v30冷启动崩溃，但没有实现“保留v29任务能力并
+  改善动态/功率”的核心假设；正则恢复后策略主要承受更大的账面惩罚，没有把
+  原始动作质量推向目标。已在约3250轮停止PID720，最后完整checkpoint为
+  model_3250.pt，不得恢复或作为部署候选。定时监控任务随该机制终止而删除；
+  未经用户新指令不自动创建v32或启动新训练。
+
 ---
 
 ## 已废弃方向
