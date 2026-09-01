@@ -1739,6 +1739,24 @@ LR 死锁根本原因：
   不依据单个500点停止；继续到1000门控。若@1000仍持续超限，再判定暖机复现
   假设失败或延长观察，而不能把1000后正则启用造成的变化混在一起解释。
 
+  v31正式run 1000门控：analysis/v31_gate_1000_vs_v29.json、
+  analysis/v31_gate_1000_vs_v18.json。暖机复现假设未通过，但训练尚未崩溃，
+  继续到1500观察正则刚启用后的方向。
+    v31 vs v29@1000：reward 9.51 vs 12.45（-23.6%）、episode 964.71
+    vs 981.82（-1.7%）、terrain 0.72 vs 1.24（-41.9%）、linear/angular
+    tracking 0.48/0.29 vs 0.62/0.30（-22.4%/-3.1%）。因此只有episode和
+    angular tracking进入±10%门，reward、terrain和linear tracking未通过。
+    v31 vs v18@1000：reward低25.9%、terrain低29.5%、linear tracking低
+    18.3%、angular tracking低4.3%；按8192/4096样本量对齐还需同时参考
+    v18@2000，不能把同iteration解释为同样本量。
+    v31@1000 noise_std=0.50（v29=0.44），autoenc=10.67（v29=8.81）；
+    surrogate为小幅正值，尚无持续发散、NaN/Inf、CUDA/PhysX或LR死锁。
+    暖机期间权重与v29相同，但同seed轨迹仍未复现v29，说明GPU PhysX/PPO训练
+    不能视为严格确定性单次复现；这降低了后续因果比较置信度。约iteration1437
+    时progress=0.073、reward=11.35、episode=949.5、terrain=1.285，仍在改善，
+    故不因1000单点停止。@1500重点判断terrain/tracking是否在正则开始恢复后
+    继续上升；若持续回落或多项训练健康指标恶化，再处置。
+
 ---
 
 ## 已废弃方向
