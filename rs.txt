@@ -1997,6 +1997,20 @@ LR 死锁根本原因：
     当前证据继续支持diagnostic-only/reject倾向，但按用户要求训练到30000，
     下一完整门控为12000。
 
+  v32正式run 12000门控：analysis/v32_gate_12000_vs_v18.json。训练继续。
+    v32@12000 reward=14.499、episode=1000.44、terrain=3.0434、linear/angular
+    tracking=0.73217/0.33351；v18@12000为21.540、970.37、4.1891、
+    0.87558/0.39967，v32的reward、terrain、线/角跟踪低32.7%、27.3%、
+    16.4%、16.6%。terrain从8000的2.974仅升至3.043，约3级平台持续。
+    Loss/vel_estimation=0.11756，较8000的0.12672缓慢改善；autoencoder=2.111。
+    相对v18同轮次，orientation、lin_vel_z、ang_vel_xy、action_rate、
+    smoothness、joint_power、power_distribution惩罚幅值约1.84、2.29、1.54、
+    2.13、1.75、2.21、5.33倍，dof_acc近似持平。surrogate在精确@12000为
+    +0.00050，但@12080已转为-0.00204，未形成连续发散；LR、noise和GPU正常。
+    按total timesteps，v32@12000对应v18@24000；v18@24000 reward=23.433、
+    terrain=4.2233、linear/angular tracking=0.91428/0.42587，差距仍大。
+    继续按用户要求至30000，下一完整门控为15000。
+
 ---
 
 ## 已废弃方向
