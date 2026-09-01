@@ -1688,6 +1688,30 @@ LR 死锁根本原因：
   低等级失败环境仍获得较松探索区间，高等级环境从起始即承担较强护栏。
   首个正式判定点为200；此前数据只用于启动健康检查。
 
+  v30探针结果与判定：reject。@200相对v29同步点，reward=-0.25 vs 3.88、
+  episode=30.64 vs 855.22、terrain均为0、linear/angular tracking约
+  0.01/0.01 vs 0.206/0.213；@300仍为reward=-0.16、episode=33.83、
+  terrain=0。mobility_regularizer_progress从初始约0.669下降，并在step72后
+  持续为0。根因是初始terrain level随机0~5，未训练策略从第一个batch就在
+  大量高等级环境承担接近v27的完整正则；早期失败样本污染更新，随后所有环境
+  退回level0也未恢复。不得将v30探针扩展为30000轮正式训练。
+
+## v31：带全局暖机的地形课程耦合正则恢复（正式实验定义）
+
+  父版本和目标机制保持v30不变，只修正正则课程的启用时序：前1000个
+  optimizer iterations（24000个rollout control steps）所有环境保持v29有效
+  强度；1000~3000轮用time_progress线性从0增至1，并与terrain_progress相乘：
+    progress = clip(terrain_level/3,0,1) *
+               clip((common_step-24000)/48000,0,1)
+  因而早期学习应精确复现已通过任务门的v29，待策略具备基本跟踪和生存能力后
+  才按已证明的terrain competence恢复v27正则。其余PD、tracking、action_scale、
+  PPO、随机化、课程、功率和硬安全项全部不变。
+
+  可证伪门：@200/@500/@1000任务指标应处于v29同步值±10%；1000后正则进度
+  应随时间/terrain上升且terrain不能重新锁死；@3000六项raw动态代理以及
+  joint_power/power_distribution应相对v29@3000改善至少20%，同时tracking与
+  terrain不持续低于v29超过10%。失败则reject，不恢复checkpoint。
+
 ---
 
 ## 已废弃方向

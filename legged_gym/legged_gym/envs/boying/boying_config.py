@@ -75,13 +75,16 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         # proven v17 reward scales and PPO settings.
         feet_air_time_threshold = 0.3
 
-        # v30: curriculum-coupled restoration of the v27 safety regularizers.
-        # At terrain level 0 the effective strengths equal v29, preserving the
-        # exploration benefit diagnosed there.  They ramp linearly and reach
-        # the full v27 strength at level 3, preventing continued growth of raw
-        # motion, acceleration and power proxies as terrain competence rises.
+        # v31: delayed curriculum-coupled restoration of the v27 safety
+        # regularizers. v30 coupled from the first batch and failed because the
+        # randomized initial terrain levels (0..5) exposed an untrained policy
+        # to nearly full v27 regularization. Keep every environment at v29
+        # strength for 1000 optimizer iterations (24 rollout steps/iteration),
+        # then ramp the terrain coupling over the next 2000 iterations.
         mobility_regularizer_curriculum = True
         mobility_regularizer_full_level = 3.0
+        mobility_regularizer_warmup_steps = 24000
+        mobility_regularizer_ramp_steps = 48000
         mobility_regularizer_start_ratios = {
             'orientation': 5.0 / 6.0,
             'ang_vel_xy': 0.8,
@@ -92,7 +95,7 @@ class BoyingRoughCfg( LeggedRobotCfg ):
         }
 
         class scales( LeggedRobotCfg.rewards.scales ):
-            # v30 base scales are restored to v27. The curriculum above applies
+            # v31 base scales are restored to v27. The curriculum above applies
             # the v29 ratios only at low terrain levels and removes that
             # relaxation by level 3. Tracking, power and hard-limit terms remain
             # unchanged.

@@ -960,7 +960,11 @@ class LeggedRobot(BaseTask):
         if not getattr(self.cfg.rewards, "mobility_regularizer_curriculum", False):
             return torch.ones(self.num_envs, device=self.device)
         full_level = max(float(self.cfg.rewards.mobility_regularizer_full_level), 1.0)
-        return torch.clamp(self.terrain_levels.float() / full_level, 0.0, 1.0)
+        terrain_progress = torch.clamp(self.terrain_levels.float() / full_level, 0.0, 1.0)
+        warmup_steps = float(getattr(self.cfg.rewards, "mobility_regularizer_warmup_steps", 0))
+        ramp_steps = max(float(getattr(self.cfg.rewards, "mobility_regularizer_ramp_steps", 1)), 1.0)
+        time_progress = min(max((self.common_step_counter - warmup_steps) / ramp_steps, 0.0), 1.0)
+        return terrain_progress * time_progress
 
     def _mobility_regularizer_factor(self, reward_name):
         if not getattr(self.cfg.rewards, "mobility_regularizer_curriculum", False):
