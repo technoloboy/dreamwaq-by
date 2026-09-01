@@ -1722,6 +1722,23 @@ LR 死锁根本原因：
   低干扰监控，门控为200/500/1000/1500/2000/2500/3000/5000/8000/
   12000/15000/20000/25000/29999。
 
+  v31正式run 200/500门控：analysis/v31_gate_200_500_vs_v29.json、
+  analysis/v31_gate_200_500_vs_v18.json。训练继续到1000复核，不提前停止。
+    @200相对v29：reward 2.68 vs 3.88（-30.9%）、episode 533.82 vs
+    855.22（-37.6%）、terrain均为0、linear/angular tracking 0.15/0.14
+    vs 0.21/0.21；早期方向落后目标窗口，但未出现v30的episode约30持续崩溃。
+    @500相对v29：reward 6.94 vs 8.10（-14.3%）、episode 931.63 vs
+    903.84（+3.1%）、terrain 0.22 vs 0.32（-30.2%）、linear tracking
+    0.36 vs 0.38（-5.0%）、angular tracking 0.22 vs 0.28（-20.2%）。
+    相对v18@500：reward低27.6%、episode低4.1%、terrain低12.0%、linear
+    tracking高10.4%、angular tracking低31.2%。mobility_regularizer_progress
+    按定义持续为0；noise_std@500=0.51（v29=0.52），surrogate约+0.0003，
+    value正常，无NaN/Inf、CUDA/PhysX或LR死锁。
+  判定：v31已从@200显著恢复到长episode，线跟踪达到门内，但reward、terrain、
+  angular tracking仍未达到相对v29的±10%预期。因趋势仍在恢复且尚处暖机期，
+  不依据单个500点停止；继续到1000门控。若@1000仍持续超限，再判定暖机复现
+  假设失败或延长观察，而不能把1000后正则启用造成的变化混在一起解释。
+
 ---
 
 ## 已废弃方向
