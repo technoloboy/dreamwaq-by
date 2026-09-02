@@ -2035,9 +2035,26 @@ LR 死锁根本原因：
     joint_power、power_distribution惩罚幅值约1.79、2.32、1.77、2.17、1.75、
     2.06、4.32倍，dof_acc近似持平。surrogate=-0.00130、noise_std=0.447，
     无NaN/Inf、GPU或优化器异常。
-    v32为8192 env，@20000样本量已约为完整v18@29999的1.33倍，已无精确
-    total-timesteps同步点；不能把更多样本解释为不足。当前结果继续支持reject/
-    diagnostic-only而非候选，但遵照用户要求继续，下一门控为25000。
+  v32为8192 env，@20000样本量已约为完整v18@29999的1.33倍，已无精确
+  total-timesteps同步点；不能把更多样本解释为不足。当前结果继续支持reject/
+  diagnostic-only而非候选，但遵照用户要求继续，下一门控为25000。
+
+  v32正式run 25000门控：analysis/v32_gate_25000_vs_v18.json。训练继续。
+    v32@25000 reward=14.576、episode=979.35、terrain=3.1551、linear/angular
+    tracking=0.72652/0.32557；v18@25000为22.833、977.25、4.1652、
+    0.89462/0.41719。除episode外，v32的reward、terrain、线/角跟踪分别低
+    36.2%、24.2%、18.8%、22.0%。terrain仍停留在约3.16，课程平台没有
+    实质突破；相较@20000，reward和tracking还出现小幅回落。
+    Loss/vel_estimation=0.12012，mobility_regularizer_progress=0.64853，
+    autoencoder=2.319。相对v18同轮次，orientation、lin_vel_z、ang_vel_xy、
+    action_rate、smoothness、joint_power、power_distribution惩罚幅值约2.09、
+    2.39、1.77、2.22、1.81、2.06、4.67倍；dof_acc近似持平。surrogate=
+    -0.00084、LR=1.1391e-4、noise_std=0.4445，未发现NaN/Inf、CUDA/PhysX
+    或优化器异常。
+    v32@25000的总样本量已约为完整v18@29999的1.67倍，仍显著落后，排除
+    “样本量不足”作为主要解释。该确定性速度分支修复可作为机制诊断保留，
+    但当前策略继续支持reject/diagnostic-only结论；遵照用户要求运行到30000，
+    下一门控为29999并在完成后执行多checkpoint gait_analysis安全评估。
 
 ---
 
