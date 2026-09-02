@@ -78,6 +78,10 @@ def collect_gait(args):
     env_cfg.domain_rand.randomize_motor_strength = False
     env_cfg.domain_rand.randomize_Kp_factor = False
     env_cfg.domain_rand.randomize_Kd_factor = False
+    # Checkpoint evaluation uses the mature, full-strength regularizers.  In
+    # particular, plane environments do not create terrain_levels, which the
+    # training-only terrain-coupled schedule requires.
+    env_cfg.rewards.mobility_regularizer_curriculum = False
 
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
     if not 0 <= ROBOT_INDEX < env.num_envs:

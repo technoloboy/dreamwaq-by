@@ -2056,6 +2056,43 @@ LR 死锁根本原因：
     但当前策略继续支持reject/diagnostic-only结论；遵照用户要求运行到30000，
     下一门控为29999并在完成后执行多checkpoint gait_analysis安全评估。
 
+  v32正式run完成与29999门控：analysis/v32_gate_29999_vs_v18.json。
+    训练完成model_30000.pt，全程无NaN/Inf、CUDA/PhysX致命错误或进程异常。
+    v32@29999 reward=15.794、episode=998.23、terrain=3.2443、linear/angular
+    tracking=0.76866/0.33980；v18@29999为23.344、994.34、4.1251、
+    0.90946/0.42343。除episode外，v32分别低32.3%、21.4%、15.5%、19.8%。
+    Loss/vel_estimation=0.12177、autoencoder=2.354、mobility progress=0.66396；
+    surrogate=-0.00296、LR=1.7086e-4、noise_std=0.4417，优化数值健康，但
+    估计损失从课程展开后长期停在约0.12，没有转化为课程或跟踪收益。
+    相对v18最终，orientation、lin_vel_z、ang_vel_xy、action_rate、smoothness、
+    joint_power、power_distribution惩罚幅值约2.10、2.27、1.94、2.17、1.76、
+    2.00、4.31倍；dof_acc略差2.5%。v32@29999总样本量为v18完整run的2倍，
+    因而性能差距不能归因于采样不足。
+
+  最终确定性动力学评估：analysis/gait_v32_final/（v32 ckpt 20000/25000/
+  30000）与analysis/gait_v32_parents/（v29/v31 ckpt3000）；命令均为
+  vx=0.6m/s、无噪声/域随机化，覆盖plane及rough type6/type14。评估时关闭
+  训练专用mobility_regularizer_curriculum，使所有场景使用成熟的全强度奖励
+  配置，并修复plane没有terrain_levels导致的评估初始化错误。
+    v32三个checkpoint在全部9个场景均未通过安全门：torque utilization峰值
+    均为1.0（打满），最小位置margin=-0.244~-0.270rad，位置越限3139~3669
+    个sample-joint；velocity峰值1.331~2.069，均超过门限。
+    平地tracking RMS：ckpt20000/25000/30000分别0.0542/0.0588/0.0575m/s，
+    相对v18/model_25000的0.0266恶化约104%/121%/116%，远超10%门限；平地
+    平均绝对功率676~724W，约为v18的2.1~2.3倍，滑移p95也显著更高。
+    rough type6最好的速度峰值仍为ckpt25000的1.433，最好的tracking RMS为
+    ckpt30000的0.447，且全部扭矩饱和和位置越限；type14同样全部失败。
+    v29/v31@3000也出现扭矩打满和位置越限，说明v32继承的父机制已带有明显
+    动力学缺陷；v32后期训练没有修复，反而形成更深的位置越限（约-0.245rad）。
+    可信v18/model_25000同场景仍明显更安全：plane torque=0.344、margin=
+    +0.353rad、零越限；type6 torque=0.481、margin=+0.098rad、零越限。
+
+  最终决定：REJECT（代码修复本身可保留为机制正确性修复，但v32策略仅作
+  diagnostic-only，不得作为仿真部署或真机候选）。失败原因不是训练未收敛，
+  而是课程平台、跟踪回退、持续高动作/功率代偿以及所有checkpoint的扭矩饱和
+  和位置越限。未经用户新指令不启动下一版本。任何后续真机候选仍必须吊架、
+  低速、独立软硬限幅、急停、短时和平地分阶段测试。
+
 ---
 
 ## 已废弃方向
